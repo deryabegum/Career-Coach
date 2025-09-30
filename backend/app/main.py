@@ -2,11 +2,18 @@ import os
 import sqlite3
 from flask import Flask, request, jsonify, session
 from flask_bcrypt import Bcrypt
+from werkzeug.utils import secure_filename
 from . import db
+from app.services.ai_helper import AIHelper
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-very-secret-key-here'  # Required for sessions
+app.config['SECRET_KEY'] = 'your-very-secret-key-here'
 app.config['DATABASE'] = os.path.join(app.instance_path, 'app.db')
+
+UPLOAD_FOLDER = os.path.join(app.root_path, 'uploads')
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # Initialize Bcrypt
 bcrypt = Bcrypt(app)
@@ -16,7 +23,6 @@ db.init_app(app)
 
 @app.route('/api/register', methods=['POST'])
 def register():
-    # (Your existing registration code here)
     data = request.get_json()
     email = data.get('email')
     password = data.get('password')
@@ -61,7 +67,6 @@ def login():
         user = cursor.fetchone()
 
         if user and bcrypt.check_password_hash(user['password_hash'], password):
-            # If login is successful, you can manage the session or return a token
             session['user_id'] = user['id']
             return jsonify({"message": "Login successful"}), 200
         else:
@@ -70,6 +75,33 @@ def login():
         return jsonify({"error": str(e)}), 500
     finally:
         db.close_db()
+        
+@app.route('/api/resume/upload', methods=['POST'])
+def upload_resume():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file part in the request"}), 400
+
+    file = request.files['file']
+
+    if file.filename == '':
+        return jsonify({"error": "No selected file"}), 400
+
+    if file:
+        filename = secure_filename(file.filename)
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(filepath)
+
+        # Call the AIHelper to parse the resume
+        ai_helper = AIHelper()
+        parsed_resume_data = ai_helper.parseResume(filepath)
+        
+        # Here you would save the parsed data to your database
+        # For now, we'll just return it in the response
+        return jsonify({
+            "message": "Resume uploaded and parsed successfully", 
+            "filename": filename,
+            "parsed_data": parsed_resume_data
+        }), 200
 
 if __name__ == '__main__':
     app.run(debug=True)
