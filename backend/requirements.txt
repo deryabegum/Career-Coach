@@ -9,3 +9,9 @@ pgvector
 sentence-transformers
 spacy
 pymupdf
+flask
+flask-cors
+werkzeug
+python-dotenv
+PyMuPDF
+python-docx
