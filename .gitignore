@@ -1,0 +1,14 @@
+# add these lines if they’re not already present
+cat >> .gitignore <<'EOF'
+
+# --- Backend runtime data (do NOT commit) ---
+backend/instance/
+backend/app/uploads/
+uploads/
+
+# --- Frontend build (do NOT commit) ---
+frontend/node_modules/
+frontend/build/
+frontend/dist/
+frontend/.next/
+EOF
