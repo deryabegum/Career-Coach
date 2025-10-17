@@ -13,9 +13,9 @@ def create_app():
         DATABASE=os.path.join(os.path.dirname(__file__), "..", "instance", "app.db"),
         ALLOWED_EXTS={"pdf","docx"},
         ALLOWED_MIMES={
-            "application/pdf",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        },
+          "application/pdf",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document", 
+       },
         JSON_SORT_KEYS=False,
     )
     os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
