@@ -32,9 +32,6 @@ class DashboardDAO:
         return round(float(row["avg_score"]), 2) if row and row["avg_score"] is not None else 0
 
     def last_keyword_match(self, user_id):
-        # FIXES: 
-        # 1. Corrected SELECT column to match_score (was 'score')
-        # 2. Added JOIN to resumes table (was using non-existent user_id)
         row = self.conn.execute("""
             SELECT ka.match_score 
             FROM keyword_analyses ka
@@ -46,13 +43,11 @@ class DashboardDAO:
         # FIX: Corrected return key to match_score (was 'score')
         return (row["match_score"] if row and row["match_score"] is not None else 0) 
 
-    # FIX: Indentation corrected so 'totals' is a method of DashboardDAO
     def totals(self, user_id):
         
         # Helper function for counting
         def count(table):
             
-            # FIX: Special logic for keyword_analyses (needs JOIN)
             if table == "keyword_analyses":
                 r = self.conn.execute(
                     """
@@ -79,7 +74,6 @@ class DashboardDAO:
 
 
 def build_summary(dao: 'DashboardDAO', user_id: int):
-    # FIX: Updated type hint to 'DashboardDAO'
     return {
         "lastResumeScore": dao.last_resume_score(user_id),
         "interviewAverage": dao.interview_average(user_id),
