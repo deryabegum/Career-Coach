@@ -8,10 +8,17 @@ const Resume = () => {
 
   const handleFileSelect = (event) => {
     const file = event.target.files[0];
-    if (file && file.type === 'application/pdf') {
+    // Define allowed MIME types based on your backend config
+    const allowedMimeTypes = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document' // DOCX MIME type
+    ];
+    
+    // Check if the file is selected AND its type is in the allowed list
+    if (file && allowedMimeTypes.includes(file.type)) {
       setSelectedFile(file);
     } else {
-      alert('Please select a PDF file');
+      alert('Please select a PDF or DOCX file.'); 
     }
   };
 
@@ -50,7 +57,7 @@ const Resume = () => {
           <div className="upload-box">
             <input
               type="file"
-              accept=".pdf"
+              accept=".pdf, .docx, application/pdf, application/vnd.openxmlformats-officedocument.wordprocessingml.document"
               onChange={handleFileSelect}
               id="file-input"
               style={{ display: 'none' }}
@@ -66,7 +73,7 @@ const Resume = () => {
                   <path d="M10 9H8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </div>
-              <p>Click to select PDF file</p>
+              <p>Click to select PDF or DOCX file</p>
               {selectedFile && <p className="selected-file">Selected: {selectedFile.name}</p>}
             </label>
           </div>

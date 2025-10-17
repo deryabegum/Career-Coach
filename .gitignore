@@ -1,14 +1,19 @@
-# add these lines if they’re not already present
-cat >> .gitignore <<'EOF'
+# OS junk
+.DS_Store
 
-# --- Backend runtime data (do NOT commit) ---
-backend/instance/
-backend/app/uploads/
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# Flask runtime
+instance/
 uploads/
-
-# --- Frontend build (do NOT commit) ---
-frontend/node_modules/
-frontend/build/
-frontend/dist/
-frontend/.next/
 EOF
