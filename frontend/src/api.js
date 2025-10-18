@@ -19,9 +19,9 @@ async function request(path, options = {}) {
 export const api = {
   getDashboardSummary: () => request('/api/v1/dashboard/summary'), 
   
-  uploadResume: (file) => { 
+uploadResume: (file) => { 
     const form = new FormData();
-    form.append('file', file);
+    form.append('file', file); 
     return fetch(API_BASE + '/api/resume/upload', { // Use correct path
       method: 'POST', 
       body: form 

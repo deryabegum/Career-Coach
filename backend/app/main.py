@@ -1,6 +1,7 @@
 # backend/app/main.py
 import os
 import sqlite3
+import json 
 from uuid import uuid4
 from flask import Blueprint, request, jsonify, session, current_app, send_file, abort
 from werkzeug.utils import secure_filename
@@ -76,6 +77,10 @@ def _allowed_file(upload) -> bool:
 
 @bp.post("/resume/upload")
 def upload_resume():
+    # Placeholder for authenticated user (will be replaced by JWT later)
+    # Assuming user_id=1 for now, or reading from the session as currently implemented
+    user_id = session.get("user_id", 1) 
+    
     if "file" not in request.files:
         return jsonify({"error": "No file part in the request"}), 400
 
@@ -87,28 +92,54 @@ def upload_resume():
         return jsonify({"error": "Invalid file type. Only PDF or DOCX files are allowed."}), 415
 
     original_name = secure_filename(file.filename)
+    # Note: rid is used for the stored filename, but the DB uses an autoincrement ID
     rid = str(uuid4())
     saved_name = f"{rid}_{original_name}"
 
     upload_dir = current_app.config["UPLOAD_FOLDER"]
     os.makedirs(upload_dir, exist_ok=True)
     filepath = os.path.join(upload_dir, saved_name)
+    
+    # 1. Save the file to disk
     file.save(filepath)
 
+    # 2. Parse the resume content
     ai_helper = AIHelper()
     parsed_resume_data = ai_helper.parseResume(filepath)
+    
+    # Check if parsing failed before continuing
+    if "error" in parsed_resume_data:
+        os.remove(filepath)
+        return jsonify({"error": f"Parsing failed: {parsed_resume_data['error']}"}), 500
 
+    # 3. Store the record in the database
+    db_conn = db.get_db()
+    cursor = db_conn.cursor()
+    try:
+        cursor.execute(
+            """
+            INSERT INTO resumes (user_id, file_path, parsed_json)
+            VALUES (?, ?, ?)
+            """,
+            (user_id, filepath, json.dumps(parsed_resume_data)), # Store dict as JSON string
+        )
+        db_conn.commit()
+    except Exception as e:
+        # If DB save fails, log the error and remove the saved file
+        current_app.logger.error(f"Failed to save resume record to DB: {e}")
+        os.remove(filepath)
+        return jsonify({"error": "Database error during resume upload."}), 500
+    finally:
+        db.close_db()
+
+    # 4. Return success response
     return jsonify({
         "message": "Resume uploaded and parsed successfully",
-        "id": rid,
+        "resume_db_id": cursor.lastrowid, # Get the ID of the new resume record
         "filename": original_name,
-        "stored_filename": saved_name,
-        "mimeType": file.mimetype,
         "size": os.path.getsize(filepath),
         "parsed_data": parsed_resume_data
     }), 200
-
-
 # ---------------- View / Delete (optional) ----------------
 @bp.get("/resume/view")
 def resume_view():
