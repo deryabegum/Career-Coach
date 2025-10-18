@@ -1,49 +1,69 @@
+# backend/app/services/ai_helper.py
 import os
 import fitz  # PyMuPDF
-import docx
+import docx  # python-docx
+import json
+from flask import current_app
 
 class AIHelper:
-    def __init__(self):
-        pass
+    """
+    Handles AI interactions, including resume parsing and analysis.
+    For this step, we only implement file content extraction.
+    """
+    
+    def _read_docx(self, filepath):
+        """Reads text from a DOCX file."""
+        try:
+            document = docx.Document(filepath)
+            return '\n'.join([paragraph.text for paragraph in document.paragraphs])
+        except Exception as e:
+            current_app.logger.error(f"Error reading DOCX {filepath}: {e}")
+            return None
 
-    def _extract_pdf(self, file_path):
-        text = ""
-        with fitz.open(file_path) as pdf:
-            for page in pdf:
+    def _read_pdf(self, filepath):
+        """Reads text from a PDF file."""
+        try:
+            doc = fitz.open(filepath)
+            text = ""
+            for page in doc:
                 text += page.get_text()
-        return text.strip()
+            return text
+        except Exception as e:
+            current_app.logger.error(f"Error reading PDF {filepath}: {e}")
+            return None
 
-    def _extract_docx(self, file_path):
-        doc = docx.Document(file_path)
-        return "\n".join([para.text for para in doc.paragraphs]).strip()
-
-    def parseResume(self, file_path):
+    def parseResume(self, filepath: str) -> dict:
         """
-        Extracts text and does lightweight parsing.
+        Extracts text from a resume file and returns a structured dictionary (JSON).
+        This is a basic text extraction. Full AI parsing will be added later.
         """
-        print(f"Parsing resume file at: {file_path}")
-        ext = os.path.splitext(file_path)[1].lower()
-
-        if ext == ".pdf":
-            text = self._extract_pdf(file_path)
-        elif ext == ".docx":
-            text = self._extract_docx(file_path)
+        ext = os.path.splitext(filepath)[1].lower()
+        
+        # 1. Extract raw text based on file type
+        if ext == '.pdf':
+            raw_text = self._read_pdf(filepath)
+        elif ext == '.docx':
+            raw_text = self._read_docx(filepath)
         else:
-            return {"error": "Unsupported file type"}
+            return {"error": "Unsupported file type during parsing."}
 
-        # ----- Simple keyword-based parsing -----
-        lower_text = text.lower()
-        education = [line for line in text.splitlines() if "university" in line or "bachelor" in line or "master" in line]
-        experience = [line for line in text.splitlines() if "intern" in line or "engineer" in line or "developer" in line]
-        skills = [word for word in ["python", "sql", "java", "c++", "pandas", "flask", "excel"]
-                  if word in lower_text]
+        if not raw_text:
+            return {"error": "Failed to extract text from file."}
 
-        parsed_data = {
-            "summary": text[:500] + "..." if len(text) > 500 else text,
-            "education": education or ["Not found"],
-            "experience": experience or ["Not found"],
-            "skills": skills or ["Not detected"],
-            "warnings": []
+        # 2. Mock Parsing (Return raw text as a 'parsed' section for now)
+        # In a later step, you would send raw_text to an LLM (GPT-4) for structured analysis.
+        
+        # For now, return a basic structure with the full text
+        return {
+            "summary": "Basic text extracted successfully.",
+            "raw_text": raw_text[:500] + "..." if len(raw_text) > 500 else raw_text,
+            "sections": [
+                {"name": "full_content", "content": raw_text}
+            ],
+            "extracted_data": {
+                "name": "N/A", 
+                "email": "N/A", 
+                "skills": [], 
+                "experience_count": 0
+            }
         }
-
-        return parsed_data

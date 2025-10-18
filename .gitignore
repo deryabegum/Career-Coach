@@ -1,0 +1,19 @@
+# OS junk
+.DS_Store
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# Flask runtime
+instance/
+uploads/
+EOF
