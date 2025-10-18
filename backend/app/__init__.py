@@ -38,4 +38,7 @@ def create_app():
     
     app.register_blueprint(dashboard_summary_bp)   
 
+    from .features.jwt_auth.api import bp as auth_bp
+    app.register_blueprint(auth_bp)  # exposes /api/v1/auth/register and /login
+    
     return app
