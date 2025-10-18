@@ -30,4 +30,7 @@ def create_app():
     from .features.dashboard_summary.api import bp as dashboard_summary_bp
     app.register_blueprint(dashboard_summary_bp)   # bp has url_prefix="/api/v1/dashboard"
 
+    from .features.jwt_auth.api import bp as auth_bp
+    app.register_blueprint(auth_bp)  # exposes /api/v1/auth/register and /login
+
     return app
