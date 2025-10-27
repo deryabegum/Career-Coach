@@ -46,4 +46,9 @@ def create_app():
     from .features.jwt_auth.api import bp as auth_bp
     app.register_blueprint(auth_bp)
 
+    # Keywords routes (/api/keywords/match)
+    from .features.keywords.api import bp as keywords_bp
+    app.register_blueprint(keywords_bp)
+
+
     return app
