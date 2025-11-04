@@ -12,11 +12,17 @@ def register():
     data = request.get_json(force=True) or {}
     email = (data.get("email") or "").strip().lower()
     password = data.get("password") or ""
-    if not email or not password:
-        return jsonify({"error": "email and password required"}), 400
+    name = (data.get("name") or "").strip() # <-- 1. Get name from request
+
+    # 2. Check for name
+    if not email or not password or not name:
+        return jsonify({"error": "email, password, and name are required"}), 400
+    
     if get_user_by_email(email):
         return jsonify({"error": "email already exists"}), 409
-    create_user(email, password)
+    
+    # 3. Pass name to create_user
+    create_user(email, password, name)
     return jsonify({"ok": True}), 201
 
 
@@ -33,7 +39,10 @@ def login():
     password = data.get("password") or ""
 
     user = get_user_by_email(email)
-    if not user or not verify_pw(password, user["password"]):
+    
+    # 4. --- FIX THE LOGIN BUG ---
+    #    Change user["password"] to user["password_hash"]
+    if not user or not verify_pw(password, user["password_hash"]):
         return jsonify({"error": "invalid credentials"}), 401
 
     # identity becomes get_jwt_identity() on protected routes
