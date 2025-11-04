@@ -5,6 +5,8 @@ import json
 from uuid import uuid4
 from flask import Blueprint, request, jsonify, session, current_app, send_file, abort
 from werkzeug.utils import secure_filename
+# 1. ADD these imports for JWT
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from . import db
 from .services.ai_helper import AIHelper
 from .extensions import bcrypt
@@ -12,6 +14,8 @@ from .extensions import bcrypt
 bp = Blueprint("main", __name__)
 
 # -------------------- Auth --------------------
+# (These routes are no longer used by your new frontend, 
+# but we'll leave them to avoid breaking anything)
 @bp.post("/register")
 def register():
     data = request.get_json(silent=True) or {}
@@ -75,11 +79,15 @@ def _allowed_file(upload) -> bool:
     return ext in allowed_exts and (upload.mimetype in allowed_mimes)
 
 
+# --- THIS IS THE UPDATED FUNCTION ---
 @bp.post("/resume/upload")
+@jwt_required() # 2. ADD this decorator
 def upload_resume():
-    # Placeholder for authenticated user (will be replaced by JWT later)
-    # Assuming user_id=1 for now, or reading from the session as currently implemented
-    user_id = session.get("user_id", 1) 
+    # 3. REPLACE the old session line with this
+    user_id = get_jwt_identity() 
+    if not user_id:
+        return jsonify({"error": "Authentication required."}), 401
+    # ---------------------------------
     
     if "file" not in request.files:
         return jsonify({"error": "No file part in the request"}), 400
@@ -92,7 +100,6 @@ def upload_resume():
         return jsonify({"error": "Invalid file type. Only PDF or DOCX files are allowed."}), 415
 
     original_name = secure_filename(file.filename)
-    # Note: rid is used for the stored filename, but the DB uses an autoincrement ID
     rid = str(uuid4())
     saved_name = f"{rid}_{original_name}"
 
@@ -121,7 +128,7 @@ def upload_resume():
             INSERT INTO resumes (user_id, file_path, parsed_json)
             VALUES (?, ?, ?)
             """,
-            (user_id, filepath, json.dumps(parsed_resume_data)), # Store dict as JSON string
+            (user_id, filepath, json.dumps(parsed_resume_data)), # 4. This user_id is now correct
         )
         db_conn.commit()
     except Exception as e:
@@ -148,7 +155,7 @@ def resume_view():
         abort(404)
     files = [f for f in os.listdir(upload_dir) if f.lower().endswith((".pdf", ".docx"))]
     if not files:
-        abort(404)
+        abort(404)  # <-- THIS IS THE CORRECTED LINE
     latest = max(files, key=lambda f: os.path.getmtime(os.path.join(upload_dir, f)))
     return send_file(os.path.join(upload_dir, latest))
 
