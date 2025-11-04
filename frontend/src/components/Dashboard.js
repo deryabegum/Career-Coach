@@ -1,9 +1,6 @@
-// frontend/src/components/Dashboard.js
-
 import React, { useEffect, useState } from 'react';
 import './Dashboard.css';
 
-// 💡 Accept setCurrentPage as a prop
 const Dashboard = ({ setCurrentPage }) => { 
   const [userStats, setUserStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -13,19 +10,36 @@ const Dashboard = ({ setCurrentPage }) => {
     let alive = true;
     (async () => {
       try {
-        const res = await fetch('/api/v1/dashboard/summary');
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        // --- 1. GET THE TOKEN ---
+        const token = localStorage.getItem('token');
+        if (!token) {
+          throw new Error('No token found. Please log in.');
+        }
+
+        // --- 2. CREATE HEADERS WITH THE TOKEN ---
+        const headers = new Headers();
+        headers.append('Authorization', `Bearer ${token}`);
+
+        // --- 3. ADD HEADERS TO THE FETCH REQUEST ---
+        const res = await fetch('/api/v1/dashboard/summary', { headers: headers });
+        
+        if (!res.ok) {
+          if (res.status === 401) {
+            throw new Error('Session expired. Please log in again.');
+          }
+          throw new Error(`HTTP ${res.status}`);
+        }
+        
         const data = await res.json();
         if (alive) {
-          // NOTE: Your backend keys are probably different than the frontend keys (e.g., 'resumeScore' vs 'lastResumeScore')
-          // Assuming a basic mapping for now, but confirm backend keys later
           setUserStats({
-            resumeScore: data.lastResumeScore ?? 85, // Adjusting key based on previous backend fixes
+            // 4. I've updated 'name' to try and get it from your backend data
+            name: data.name ?? 'User', 
+            resumeScore: data.lastResumeScore ?? 85,
             interviewsCompleted: data.totals?.interviews ?? 0, 
             jobMatches: data.totals?.matches ?? 0, 
-            applicationsSent: 0, // Placeholder, as this isn't in your dashboard API data
+            applicationsSent: 0,
             progressPct: 65,
-            name: 'User'
           });
           setLoading(false);
         }
@@ -34,10 +48,21 @@ const Dashboard = ({ setCurrentPage }) => {
       }
     })();
     return () => { alive = false; };
-  }, []);
+  }, []); // This empty array is correct, it should only run once.
 
   if (loading) return <div className="dashboard-container"><p>Loading…</p></div>;
-  if (err)     return <div className="dashboard-container"><p style={{color:'crimson'}}>Error: {err}</p></div>;
+  
+  // Update the error display to be more prominent
+  if (err) return (
+    <div className="auth-container">
+      <div className="auth-card">
+        <div className="auth-error">{err}</div>
+        <p style={{textAlign: 'center', color: 'white', marginTop: '1rem'}}>
+          Your session may have expired.
+        </p>
+      </div>
+    </div>
+  );
 
   return (
     <div className="dashboard-container">
@@ -53,7 +78,7 @@ const Dashboard = ({ setCurrentPage }) => {
       {/* Stats Grid */}
       <div className="stats-grid">
         
-        {/* Resume Score Card (Not clickable - it links to Resume Detail page if implemented) */}
+        {/* Resume Score Card */}
         <div className="stat-card"> 
           <div className="stat-icon">
             {/* ... icon unchanged ... */}
@@ -65,10 +90,10 @@ const Dashboard = ({ setCurrentPage }) => {
           </div>
         </div>
 
-        {/* Mock Interviews Card (MADE CLICKABLE) */}
+        {/* Mock Interviews Card */}
         <div 
           className="stat-card clickable"
-          onClick={() => setCurrentPage('interview')} // 💡 Navigation link
+          onClick={() => setCurrentPage('interview')}
         > 
           <div className="stat-icon">
             {/* ... icon unchanged ... */}
@@ -80,10 +105,10 @@ const Dashboard = ({ setCurrentPage }) => {
           </div>
         </div>
 
-        {/* Job Matches Card (MADE CLICKABLE) */}
+        {/* Job Matches Card */}
         <div 
           className="stat-card clickable"
-          onClick={() => setCurrentPage('job-match')} // 💡 Navigation link
+          onClick={() => setCurrentPage('job-match')}
         >
           <div className="stat-icon">
             {/* ... icon unchanged ... */}
@@ -95,7 +120,7 @@ const Dashboard = ({ setCurrentPage }) => {
           </div>
         </div>
 
-        {/* Applications Card (Not clickable) */}
+        {/* Applications Card */}
         <div className="stat-card">
           <div className="stat-icon">
             {/* ... icon unchanged ... */}
@@ -107,7 +132,6 @@ const Dashboard = ({ setCurrentPage }) => {
           </div>
         </div>
       </div>
-      {/* … your existing JSX … */}
     </div>
   );
 };
