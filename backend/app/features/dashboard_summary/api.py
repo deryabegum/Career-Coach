@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify
-from backend.app.common.wire import get_db_conn  # fixed: wire, not wair
-from backend.app.features.dashboard_summary.service import DashboardDAO, build_summary
+from ...common.wire import get_db_conn  # fixed: wire, not wair
+from .service import DashboardDAO, build_summary
 
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
