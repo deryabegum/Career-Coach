@@ -46,7 +46,7 @@ const JobMatch = () => {
     <div className="auth-container">
       <div className="auth-card" style={{ maxWidth: '800px' }}>
         <h2>Job Keyword Match</h2>
-        <p style={{ color: 'rgba(255, 255, 255, 0.6)', marginTop: '-1rem', marginBottom: '2rem', textAlign: 'center' }}>
+        <p style={{ color: '#AAAAAA', marginTop: '-1rem', marginBottom: '2rem', textAlign: 'center' }}>
           Paste a job description below to compare it against your most recent resume.
         </p>
 
