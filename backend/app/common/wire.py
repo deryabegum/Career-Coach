@@ -1,5 +1,5 @@
 # backend/app/common/wire.py
-from backend.app.db import get_db
+from ..db import get_db
 
 def get_db_conn():
     """Return a live sqlite3 connection (row_factory=sqlite3.Row)."""
