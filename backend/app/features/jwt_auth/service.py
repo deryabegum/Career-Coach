@@ -1,7 +1,7 @@
 import os, datetime, jwt
 from werkzeug.security import generate_password_hash, check_password_hash
-from backend.app.db import get_db
-from backend.app.extensions import bcrypt
+from ...db import get_db
+from ...extensions import bcrypt
 
 ALGO = "HS256"
 SECRET = os.environ.get("JWT_SECRET", "dev-secret-change-me")
