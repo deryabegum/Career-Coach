@@ -1,3 +1,5 @@
+DROP TABLE IF EXISTS answers;
+DROP TABLE IF EXISTS interviews;
 DROP TABLE IF EXISTS interview_answers;
 DROP TABLE IF EXISTS interview_questions;
 DROP TABLE IF EXISTS interview_sessions;
@@ -65,4 +67,20 @@ CREATE TABLE interview_answers (
   score INTEGER,
   FOREIGN KEY (session_id) REFERENCES interview_sessions (id),
   FOREIGN KEY (question_id) REFERENCES interview_questions (id)
+);
+CREATE TABLE interviews (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  role TEXT NOT NULL,
+  company TEXT NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE answers (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  interview_id INTEGER NOT NULL,
+  qid TEXT NOT NULL,
+  prompt TEXT NOT NULL,
+  answer TEXT NOT NULL,
+  feedback_json TEXT,
+  FOREIGN KEY (interview_id) REFERENCES interviews (id)
 );

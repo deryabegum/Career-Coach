@@ -50,5 +50,8 @@ def create_app():
     from .features.keywords.api import bp as keywords_bp
     app.register_blueprint(keywords_bp)
 
+    # Mock Interview routes (/api/v1/mock-interview/*)
+    from .features.mock_interview.api import bp as mock_interview_bp
+    app.register_blueprint(mock_interview_bp)
 
     return app
