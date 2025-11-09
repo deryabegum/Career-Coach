@@ -1,12 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { motion } from "framer-motion";
 import { Timer, ChevronLeft, ChevronRight, Play, Pause, RefreshCw, Send, Sparkles, CheckCircle2, XCircle, BookOpenText, ListChecks } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
+import { api } from "./api";
+import "./MockInterview.css";
 
 /**
  * MockInterview.js (page-level component)
@@ -19,7 +14,7 @@ import { Progress } from "@/components/ui/progress";
  * - Optional AI feedback hook (stubbed) with optimistic UI
  * - Review mode with per-question status and export
  *
- * Tailwind + shadcn/ui + framer-motion
+ * Simple HTML/CSS with React
  */
 
 const DEFAULT_SECONDS = 120;
@@ -87,17 +82,34 @@ export default function MockInterviewPage() {
   const [running, setRunning] = useLocalStorage("mi_running", false);
   const [remaining, setRemaining] = useLocalStorage("mi_remaining", secondsPerQ);
   const [reviewMode, setReviewMode] = useLocalStorage("mi_review", false);
+  const [sessionId, setSessionId] = useLocalStorage("mi_sessionId", null);
+  const [loading, setLoading] = useState(false);
 
   const timerRef = useRef(null);
   const current = questions[index];
   const progressValue = Math.round(((index + 1) / questions.length) * 100);
 
-  const startInterview = useCallback(() => {
-    setStarted(true);
-    setIndex(0);
-    setRemaining(secondsPerQ);
-    setRunning(true);
-  }, [secondsPerQ, setIndex, setRemaining, setRunning, setStarted]);
+  const startInterview = useCallback(async () => {
+    try {
+      setLoading(true);
+      // Create session on backend
+      const response = await api.createInterviewSession({ role, company });
+      setSessionId(response.session_id);
+      setStarted(true);
+      setIndex(0);
+      setRemaining(secondsPerQ);
+      setRunning(true);
+    } catch (error) {
+      console.error("Failed to create session:", error);
+      // Still allow starting locally even if backend fails
+      setStarted(true);
+      setIndex(0);
+      setRemaining(secondsPerQ);
+      setRunning(true);
+    } finally {
+      setLoading(false);
+    }
+  }, [secondsPerQ, setIndex, setRemaining, setRunning, setStarted, role, company]);
 
   // Timer
   useEffect(() => {
@@ -140,6 +152,7 @@ export default function MockInterviewPage() {
     setFeedback({});
     setRunning(false);
     setRemaining(secondsPerQ);
+    setSessionId(null);
   };
 
   const answeredCount = useMemo(
@@ -152,19 +165,67 @@ export default function MockInterviewPage() {
     .filter(({ q }) => !answers[q.id] || !answers[q.id].trim());
 
   const onSubmitInterview = async () => {
-    setReviewMode(true);
-    // Optional: send all answers to backend for AI scoring/feedback
-    // await fetch("/api/interview/submit", { method: "POST", body: JSON.stringify({ role, company, answers }) })
+    if (!sessionId) {
+      // If no session, just show review mode
+      setReviewMode(true);
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      // Build answers with question prompts
+      const answersWithPrompts = {};
+      questions.forEach(q => {
+        if (answers[q.id]) {
+          answersWithPrompts[q.id] = {
+            answer: answers[q.id],
+            prompt: q.prompt
+          };
+        }
+      });
+      const result = await api.submitInterview({
+        session_id: sessionId,
+        answers: answersWithPrompts,
+        role,
+        company
+      });
+      setReviewMode(true);
+      // Store final feedback if provided
+      if (result.feedback) {
+        setFeedback((prev) => ({ ...prev, ...result.feedback }));
+      }
+      console.log("Interview submitted:", result);
+    } catch (error) {
+      console.error("Failed to submit interview:", error);
+      // Still show review mode even if submission fails
+      setReviewMode(true);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const requestFeedback = async () => {
     const a = (answers[current.id] || "").trim();
     if (!a) return;
-    // Stubbed feedback request – replace with your backend call
-    // const res = await fetch("/api/feedback", { method: "POST", body: JSON.stringify({ question: current.prompt, answer: a, role, company }) });
-    // const data = await res.json();
-    const fake = generateHeuristicFeedback(current.prompt, a);
-    setFeedback((prev) => ({ ...prev, [current.id]: fake }));
+    
+    try {
+      setLoading(true);
+      const data = await api.getInterviewFeedback({
+        session_id: sessionId,
+        question_prompt: current.prompt,
+        answer_text: a,
+        role,
+        company
+      });
+      setFeedback((prev) => ({ ...prev, [current.id]: data }));
+    } catch (error) {
+      console.error("Failed to get feedback:", error);
+      // Fallback to heuristic feedback if backend fails
+      const fake = generateHeuristicFeedback(current.prompt, a);
+      setFeedback((prev) => ({ ...prev, [current.id]: fake }));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const exportJSON = () => {
@@ -198,144 +259,153 @@ export default function MockInterviewPage() {
   }, []);
 
   return (
-    <div className="mx-auto max-w-6xl p-4 md:p-8 space-y-6">
-      <header className="flex items-center justify-between">
-        <div className="space-y-1">
-          <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">Mock Interview</h1>
-          <p className="text-sm text-muted-foreground">Practice behavioral & role-specific questions with a timed flow and instant feedback.</p>
+    <div className="mock-interview-container">
+      <header className="mock-interview-header">
+        <div>
+          <h1>Mock Interview</h1>
+          <p>Practice behavioral & role-specific questions with a timed flow and instant feedback.</p>
         </div>
-        <div className="hidden md:flex items-center gap-2">
-          <Badge variant="secondary" className="text-xs">{answeredCount}/{questions.length} answered</Badge>
-          <Badge className="text-xs" variant={reviewMode ? "default" : "outline"}>{reviewMode ? "Review" : "Practice"}</Badge>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <span className="badge">{answeredCount}/{questions.length} answered</span>
+          <span className={`badge ${reviewMode ? 'primary' : ''}`}>{reviewMode ? "Review" : "Practice"}</span>
         </div>
       </header>
 
       {!started ? (
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-          <Card className="rounded-2xl">
-            <CardHeader>
-              <CardTitle>Set up your session</CardTitle>
-              <CardDescription>Customize context and pacing to get the most out of your practice.</CardDescription>
-            </CardHeader>
-            <CardContent className="grid md:grid-cols-3 gap-4">
-              <div>
-                <label className="text-sm font-medium">Role / Track</label>
-                <Input value={role} onChange={(e) => setRole(e.target.value)} placeholder="Software Engineer Intern" />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Company</label>
-                <Input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="Nutanix, AA, UTSW" />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Seconds per question</label>
-                <Input
-                  type="number"
-                  min={30}
-                  max={600}
-                  value={secondsPerQ}
-                  onChange={(e) => setSecondsPerQ(Number(e.target.value) || DEFAULT_SECONDS)}
-                />
-              </div>
-            </CardContent>
-            <CardFooter className="flex items-center justify-between">
-              <div className="text-sm text-muted-foreground flex items-center gap-2"><BookOpenText size={16}/> {questions.length} questions in this set</div>
-              <Button size="lg" onClick={startInterview}>
-                <Play className="mr-2 h-4 w-4" /> Start practice
-              </Button>
-            </CardFooter>
-          </Card>
-        </motion.div>
+        <div className="card">
+          <div className="card-header">
+            <h2 className="card-title">Set up your session</h2>
+            <p className="card-description">Customize context and pacing to get the most out of your practice.</p>
+          </div>
+          <div className="card-content" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+            <div className="input-group">
+              <label>Role / Track</label>
+              <input className="input" value={role} onChange={(e) => setRole(e.target.value)} placeholder="Software Engineer Intern" />
+            </div>
+            <div className="input-group">
+              <label>Company</label>
+              <input className="input" value={company} onChange={(e) => setCompany(e.target.value)} placeholder="Nutanix, AA, UTSW" />
+            </div>
+            <div className="input-group">
+              <label>Seconds per question</label>
+              <input
+                className="input"
+                type="number"
+                min={30}
+                max={600}
+                value={secondsPerQ}
+                onChange={(e) => setSecondsPerQ(Number(e.target.value) || DEFAULT_SECONDS)}
+              />
+            </div>
+          </div>
+          <div className="card-footer">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', color: '#666' }}>
+              <BookOpenText size={16}/> {questions.length} questions in this set
+            </div>
+            <button className="button primary lg" onClick={startInterview} disabled={loading}>
+              <Play size={16} style={{ marginRight: '0.5rem' }} /> {loading ? "Starting..." : "Start practice"}
+            </button>
+          </div>
+        </div>
       ) : (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid lg:grid-cols-[2fr_3fr] gap-6">
+        <div className="grid-2-col">
           {/* Left: question & nav */}
-          <div className="space-y-4">
-            <Card className="rounded-2xl">
-              <CardHeader className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-xl">Question {index + 1}</CardTitle>
-                  <div className="flex items-center gap-2">
+          <div>
+            <div className="card">
+              <div className="card-header">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h3 className="card-title">Question {index + 1}</h3>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <Timer size={18} />
-                    <span className={"tabular-nums font-mono " + (remaining <= 10 ? "text-red-600" : "")}>{formatTime(remaining)}</span>
-                    <Button size="icon" variant="ghost" onClick={() => setRunning((r) => !r)} aria-label="Toggle timer">
+                    <span className={`timer-display ${remaining <= 10 ? 'warning' : ''}`}>{formatTime(remaining)}</span>
+                    <button className="icon-button" onClick={() => setRunning((r) => !r)} aria-label="Toggle timer">
                       {running ? <Pause size={18} /> : <Play size={18} />}
-                    </Button>
-                    <Button size="icon" variant="ghost" onClick={() => { setRemaining(secondsPerQ); setRunning(true); }} aria-label="Reset timer">
+                    </button>
+                    <button className="icon-button" onClick={() => { setRemaining(secondsPerQ); setRunning(true); }} aria-label="Reset timer">
                       <RefreshCw size={18} />
-                    </Button>
+                    </button>
                   </div>
                 </div>
-                <CardDescription className="flex flex-wrap gap-2">
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.5rem' }}>
                   {current.tags?.map((t) => (
-                    <Badge key={t} variant="outline" className="rounded-full">{t}</Badge>
+                    <span key={t} className="badge">{t}</span>
                   ))}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-base leading-relaxed">{current.prompt}</p>
-              </CardContent>
-              <CardFooter className="flex items-center justify-between">
-                <div className="w-full">
-                  <Progress value={progressValue} className="h-2" />
-                  <div className="mt-2 text-xs text-muted-foreground">{progressValue}% complete</div>
                 </div>
-              </CardFooter>
-            </Card>
+              </div>
+              <div className="card-content">
+                <p style={{ fontSize: '1rem', lineHeight: '1.6' }}>{current.prompt}</p>
+              </div>
+              <div className="card-footer">
+                <div style={{ width: '100%' }}>
+                  <div className="progress-bar">
+                    <div className="progress-fill" style={{ width: `${progressValue}%` }}></div>
+                  </div>
+                  <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#666' }}>{progressValue}% complete</div>
+                </div>
+              </div>
+            </div>
 
-            <Card className="rounded-2xl">
-              <CardHeader>
-                <CardTitle>Your answer</CardTitle>
-                <CardDescription>Autosaves locally. Press <kbd className="px-1 py-0.5 rounded bg-muted">Ctrl</kbd> + <kbd className="px-1 py-0.5 rounded bg-muted">Enter</kbd> to go next.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Textarea
-                  className="min-h-[200px]"
+            <div className="card">
+              <div className="card-header">
+                <h3 className="card-title">Your answer</h3>
+                <p className="card-description">Autosaves locally. Press <kbd style={{ padding: '0.125rem 0.25rem', borderRadius: '4px', background: '#f3f4f6' }}>Ctrl</kbd> + <kbd style={{ padding: '0.125rem 0.25rem', borderRadius: '4px', background: '#f3f4f6' }}>Enter</kbd> to go next.</p>
+              </div>
+              <div className="card-content">
+                <textarea
+                  className="textarea"
                   value={answers[current.id] || ""}
                   onChange={(e) => updateAnswer(current.id, e.target.value)}
                   placeholder="Structure with STAR: Situation, Task, Action, Result..."
                 />
-              </CardContent>
-              <CardFooter className="flex flex-wrap gap-2">
-                <Button variant="secondary" onClick={requestFeedback}><Sparkles className="mr-2 h-4 w-4"/>Get feedback</Button>
-                <div className="ml-auto flex gap-2">
-                  <Button variant="outline" onClick={prev} disabled={index === 0}><ChevronLeft className="mr-2 h-4 w-4"/>Prev</Button>
-                  <Button onClick={next} disabled={index === questions.length - 1}>Next<ChevronRight className="ml-2 h-4 w-4"/></Button>
+              </div>
+              <div className="card-footer" style={{ flexWrap: 'wrap', gap: '0.5rem' }}>
+                <button className="button secondary" onClick={requestFeedback} disabled={loading}>
+                  <Sparkles size={16} style={{ marginRight: '0.5rem' }} />{loading ? "Loading..." : "Get feedback"}
+                </button>
+                <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.5rem' }}>
+                  <button className="button outline" onClick={prev} disabled={index === 0}>
+                    <ChevronLeft size={16} style={{ marginRight: '0.5rem' }} />Prev
+                  </button>
+                  <button className="button primary" onClick={next} disabled={index === questions.length - 1}>
+                    Next<ChevronRight size={16} style={{ marginLeft: '0.5rem' }} />
+                  </button>
                 </div>
-              </CardFooter>
-            </Card>
+              </div>
+            </div>
           </div>
 
           {/* Right: feedback & quick nav */}
-          <div className="space-y-4">
-            <Card className="rounded-2xl">
-              <CardHeader>
-                <CardTitle>AI feedback</CardTitle>
-                <CardDescription>Heuristic demo – replace with your backend for real-time scoring.</CardDescription>
-              </CardHeader>
-              <CardContent>
+          <div>
+            <div className="card">
+              <div className="card-header">
+                <h3 className="card-title">AI feedback</h3>
+                <p className="card-description">Get instant feedback on your answers.</p>
+              </div>
+              <div className="card-content">
                 {feedback[current.id] ? (
                   <FeedbackBox data={feedback[current.id]} />
                 ) : (
-                  <div className="text-sm text-muted-foreground">No feedback yet – write an answer and click <em>Get feedback</em>.</div>
+                  <div style={{ fontSize: '0.875rem', color: '#666' }}>No feedback yet – write an answer and click <em>Get feedback</em>.</div>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
 
-            <Card className="rounded-2xl">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><ListChecks size={18}/> Quick navigator</CardTitle>
-                <CardDescription>Jump to any question and see which ones need attention.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-5 gap-2">
+            <div className="card">
+              <div className="card-header">
+                <h3 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <ListChecks size={18}/> Quick navigator
+                </h3>
+                <p className="card-description">Jump to any question and see which ones need attention.</p>
+              </div>
+              <div className="card-content">
+                <div className="question-grid">
                   {questions.map((q, i) => {
                     const done = (answers[q.id] || "").trim().length > 0;
                     return (
                       <button
                         key={q.id}
                         onClick={() => jumpTo(i)}
-                        className={`rounded-xl border text-sm py-2 transition ${
-                          i === index ? "border-primary ring-2 ring-primary/30" : "border-muted"
-                        } ${done ? "bg-green-50" : "bg-muted/30"}`}
+                        className={`question-button ${i === index ? 'active' : ''} ${done ? 'answered' : ''}`}
                         title={q.prompt}
                       >
                         {i + 1}
@@ -343,41 +413,47 @@ export default function MockInterviewPage() {
                     );
                   })}
                 </div>
-              </CardContent>
-              <CardFooter className="flex items-center justify-between">
-                <div className="text-xs text-muted-foreground">
+              </div>
+              <div className="card-footer">
+                <div style={{ fontSize: '0.75rem', color: '#666' }}>
                   {unanswered.length === 0 ? (
-                    <span className="flex items-center gap-1 text-emerald-700"><CheckCircle2 size={14}/>All questions answered</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: '#059669' }}>
+                      <CheckCircle2 size={14}/>All questions answered
+                    </span>
                   ) : (
-                    <span className="flex items-center gap-1 text-amber-700"><XCircle size={14}/>{unanswered.length} unanswered</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: '#d97706' }}>
+                      <XCircle size={14}/>{unanswered.length} unanswered
+                    </span>
                   )}
                 </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={exportJSON}>Export</Button>
-                  <Button onClick={onSubmitInterview}><Send className="mr-2 h-4 w-4"/>Submit</Button>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button className="button outline" onClick={exportJSON}>Export</button>
+                  <button className="button primary" onClick={onSubmitInterview} disabled={loading}>
+                    <Send size={16} style={{ marginRight: '0.5rem' }} />{loading ? "Submitting..." : "Submit"}
+                  </button>
                 </div>
-              </CardFooter>
-            </Card>
+              </div>
+            </div>
 
             {reviewMode && (
-              <Card className="rounded-2xl">
-                <CardHeader>
-                  <CardTitle>Review</CardTitle>
-                  <CardDescription>Spot-check answers before finalizing.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3 max-h-[300px] overflow-auto pr-2">
+              <div className="card">
+                <div className="card-header">
+                  <h3 className="card-title">Review</h3>
+                  <p className="card-description">Spot-check answers before finalizing.</p>
+                </div>
+                <div className="card-content" style={{ maxHeight: '300px', overflow: 'auto', paddingRight: '0.5rem' }}>
                   {questions.map((q, i) => (
-                    <div key={q.id} className="rounded-xl border p-3">
-                      <div className="text-xs text-muted-foreground mb-1">Q{i + 1}</div>
-                      <div className="font-medium mb-1">{q.prompt}</div>
-                      <div className="text-sm whitespace-pre-wrap">{answers[q.id] || <span className="text-muted-foreground">(no answer)</span>}</div>
+                    <div key={q.id} className="review-item">
+                      <h4>Q{i + 1}</h4>
+                      <h5>{q.prompt}</h5>
+                      <p>{answers[q.id] || <span style={{ color: '#666' }}>(no answer)</span>}</p>
                     </div>
                   ))}
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             )}
           </div>
-        </motion.div>
+        </div>
       )}
     </div>
   );
@@ -391,28 +467,28 @@ function formatTime(s) {
 
 function FeedbackBox({ data }) {
   return (
-    <div className="space-y-3">
-      <div>
-        <div className="text-xs uppercase text-muted-foreground mb-1">Summary</div>
-        <p className="text-sm leading-relaxed">{data.summary}</p>
+    <div className="feedback-box">
+      <div className="feedback-section">
+        <h4>Summary</h4>
+        <p style={{ fontSize: '0.875rem', lineHeight: '1.6' }}>{data.summary}</p>
       </div>
-      <div>
-        <div className="text-xs uppercase text-muted-foreground mb-1">Strengths</div>
-        <ul className="list-disc pl-5 text-sm space-y-1">
+      <div className="feedback-section">
+        <h4>Strengths</h4>
+        <ul>
           {data.strengths.map((s, i) => (
             <li key={i}>{s}</li>
           ))}
         </ul>
       </div>
-      <div>
-        <div className="text-xs uppercase text-muted-foreground mb-1">Suggestions</div>
-        <ul className="list-disc pl-5 text-sm space-y-1">
+      <div className="feedback-section">
+        <h4>Suggestions</h4>
+        <ul>
           {data.suggestions.map((s, i) => (
             <li key={i}>{s}</li>
           ))}
         </ul>
       </div>
-      <div className="text-xs text-muted-foreground">Heuristic feedback – demo only.</div>
+      <div style={{ fontSize: '0.75rem', color: '#666', marginTop: '1rem' }}>AI feedback from backend.</div>
     </div>
   );
 }
