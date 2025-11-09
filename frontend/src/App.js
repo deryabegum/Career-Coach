@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import './App.css';
 import Dashboard from './components/Dashboard';
 import Resume from './components/Resume';
-import MockInterview from './components/MockInterview'; 
+import MockInterview from './MockInterview'; 
 import JobMatch from './components/JobMatch';       
 import './Auth.css';
 import Login from './components/Login';
