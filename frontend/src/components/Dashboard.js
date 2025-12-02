@@ -21,13 +21,26 @@ const Dashboard = ({ setCurrentPage }) => {
         headers.append('Authorization', `Bearer ${token}`);
 
         // --- 3. ADD HEADERS TO THE FETCH REQUEST ---
-        const res = await fetch('/api/v1/dashboard/summary', { headers: headers });
+        const res = await fetch('/api/v1/dashboard/summary', { 
+          headers: headers,
+          method: 'GET',
+          credentials: 'include'
+        });
         
         if (!res.ok) {
+          let errorMessage = `HTTP ${res.status}`;
+          try {
+            const errorData = await res.json();
+            errorMessage = errorData.message || errorData.error || errorMessage;
+          } catch (e) {
+            // If response is not JSON, use status text
+            errorMessage = res.statusText || errorMessage;
+          }
+          
           if (res.status === 401) {
             throw new Error('Session expired. Please log in again.');
           }
-          throw new Error(`HTTP ${res.status}`);
+          throw new Error(errorMessage);
         }
         
         const data = await res.json();
