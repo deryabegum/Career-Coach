@@ -1,18 +1,72 @@
-# backend/app/services/ai_helper.py
 import os
 import fitz  # PyMuPDF
 import docx  # python-docx
 import json
+import google.generativeai as genai
 from flask import current_app
+from dotenv import load_dotenv
+
+# .env dosyasını yükle
+load_dotenv()
 
 class AIHelper:
     """
-    Handles AI interactions, including resume parsing and analysis.
-    For this step, we only implement file content extraction.
+    Handles AI interactions using dynamic model selection to prevent 404 errors.
     """
     
+    def __init__(self):
+        # API anahtarını .env dosyasından al
+        api_key = os.getenv("GOOGLE_API_KEY")
+        self.model = None
+        
+        if api_key:
+            try:
+                genai.configure(api_key=api_key)
+                
+                # 1. Mevcut ve desteklenen modelleri listele
+                available_models = []
+                try:
+                    for m in genai.list_models():
+                        if 'generateContent' in m.supported_generation_methods:
+                            available_models.append(m.name)
+                except Exception as e:
+                    print(f"⚠️ Model listesi alınırken hata: {e}")
+
+                print(f"ℹ️ Erişilebilir Modeller: {available_models}")
+
+                # 2. En uygun modeli seç (Flash > Pro > Diğerleri)
+                target_model = None
+                preferences = [
+                    'models/gemini-1.5-flash',
+                    'models/gemini-1.5-flash-latest',
+                    'models/gemini-1.5-pro',
+                    'models/gemini-1.5-pro-latest',
+                    'models/gemini-1.0-pro',
+                    'models/gemini-pro'
+                ]
+
+                # Tercih listesinden, mevcut modeller içinde olan ilkini seç
+                for pref in preferences:
+                    if pref in available_models:
+                        target_model = pref
+                        break
+                
+                # Eğer tercihlerden hiçbiri yoksa, listenin başındaki herhangi bir modeli al
+                if not target_model and available_models:
+                    target_model = available_models[0]
+
+                if target_model:
+                    print(f"✅ Seçilen Model: {target_model}")
+                    self.model = genai.GenerativeModel(target_model)
+                else:
+                    print("❌ Uygun bir model bulunamadı (generateContent destekleyen).")
+
+            except Exception as e:
+                print(f"❌ AI Client Init Error: {e}")
+        else:
+            print("⚠️  UYARI: GOOGLE_API_KEY bulunamadı. Yerel mantık kullanılacak.")
+
     def _read_docx(self, filepath):
-        """Reads text from a DOCX file."""
         try:
             document = docx.Document(filepath)
             return '\n'.join([paragraph.text for paragraph in document.paragraphs])
@@ -21,7 +75,6 @@ class AIHelper:
             return None
 
     def _read_pdf(self, filepath):
-        """Reads text from a PDF file."""
         try:
             doc = fitz.open(filepath)
             text = ""
@@ -34,184 +87,105 @@ class AIHelper:
 
     def parseResume(self, filepath: str) -> dict:
         """
-        Extracts text from a resume file and returns a structured dictionary (JSON).
-        This is a basic text extraction. Full AI parsing will be added later.
+        CV dosyasından metin okur.
         """
         ext = os.path.splitext(filepath)[1].lower()
         
-        # 1. Extract raw text based on file type
         if ext == '.pdf':
             raw_text = self._read_pdf(filepath)
         elif ext == '.docx':
             raw_text = self._read_docx(filepath)
         else:
-            return {"error": "Unsupported file type during parsing."}
+            return {"error": "Unsupported file type."}
 
         if not raw_text:
-            return {"error": "Failed to extract text from file."}
+            return {"error": "Failed to extract text."}
 
-        # 2. Mock Parsing (Return raw text as a 'parsed' section for now)
-        # In a later step, you would send raw_text to an LLM (GPT-4) for structured analysis.
-        
-        # For now, return a basic structure with the full text
         return {
-            "summary": "Basic text extracted successfully.",
+            "summary": "Text extracted successfully.",
             "raw_text": raw_text[:500] + "..." if len(raw_text) > 500 else raw_text,
-            "sections": [
-                {"name": "full_content", "content": raw_text}
-            ],
-            "extracted_data": {
-                "name": "N/A", 
-                "email": "N/A", 
-                "skills": [], 
-                "experience_count": 0
-            }
+            "sections": [{"name": "full_content", "content": raw_text}],
+            "extracted_data": {"name": "Candidate", "email": "N/A", "skills": [], "experience_count": 0}
         }
 
     def generateInterviewFeedback(self, question: str, answer: str, role: str = "", company: str = "") -> dict:
         """
-        Generate AI feedback for an interview answer.
-        Returns structured feedback with summary, strengths, and suggestions.
+        AI Feedback üretir.
         """
-        # Heuristic-based feedback (similar to frontend, but more comprehensive)
+        # --- PLAN A: GERÇEK AI (Google Gemini) ---
+        if self.model:
+            try:
+                prompt = f"""
+                You are an expert technical interviewer for a {role} position at {company}.
+                
+                Question: "{question}"
+                Candidate Answer: "{answer}"
+                
+                Analyze the answer and provide a JSON response with these exact keys:
+                - summary: A 1-2 sentence overview of the answer quality.
+                - strengths: A list of 2-3 specific strong points.
+                - suggestions: A list of 2-3 actionable improvements.
+                
+                IMPORTANT: Return ONLY the JSON object. Do not wrap it in markdown code blocks.
+                """
+                
+                response = self.model.generate_content(prompt)
+                
+                content = response.text
+                # Temizlik
+                if content.startswith("```json"):
+                    content = content.replace("```json", "").replace("```", "")
+                elif content.startswith("```"):
+                    content = content.replace("```", "")
+                
+                return json.loads(content)
+                
+            except Exception as e:
+                # Log hatayı ama uygulamanın çökmesine izin verme
+                print(f"❌ Gemini API Error: {e}. Falling back to heuristics.")
+                
+        # --- PLAN B: YEDEK PLAN (Heuristic) ---
+        return self._heuristic_feedback(question, answer, role)
+
+    def _heuristic_feedback(self, question, answer, role):
+        """
+        API anahtarı veya bağlantı yoksa çalışacak basit mantık.
+        """
         words = answer.split()
         word_count = len(words)
-        char_count = len(answer)
         
-        # Check for STAR structure
-        has_situation = any(word in answer.lower() for word in ["situation", "context", "background", "when"])
-        has_task = any(word in answer.lower() for word in ["task", "goal", "objective", "challenge", "needed"])
-        has_action = any(word in answer.lower() for word in ["action", "did", "implemented", "created", "developed", "worked"])
-        has_result = any(word in answer.lower() for word in ["result", "outcome", "impact", "achieved", "improved", "increased", "decreased", "saved"])
-        has_star = has_situation and has_task and has_action and has_result
+        has_action = any(w in answer.lower() for w in ["action", "i did", "implemented", "created"])
         
-        # Check for metrics/quantifiable results
-        mentions_metrics = any(word in answer.lower() for word in [
-            "percent", "%", "metric", "kpi", "score", "rating", 
-            "reduced", "improved", "increased", "decreased", "saved",
-            "faster", "slower", "more", "less", "better", "worse"
-        ])
-        
-        # Check for technical terms (if role is technical)
-        is_technical = any(term in role.lower() for term in ["engineer", "developer", "programmer", "software", "data", "tech"])
-        has_technical_terms = any(term in answer.lower() for term in [
-            "code", "algorithm", "system", "api", "database", "framework", 
-            "deploy", "test", "debug", "optimize", "architecture"
-        ]) if is_technical else True
-        
-        # Build strengths
         strengths = []
-        if word_count > 120:
-            strengths.append("Thorough explanation with good depth and detail.")
-        elif word_count > 60:
-            strengths.append("Concise and focused response.")
-        else:
-            strengths.append("Brief and direct communication.")
-        
-        if has_star:
-            strengths.append("Uses STAR structure effectively (Situation, Task, Action, Result).")
-        elif has_situation and has_action:
-            strengths.append("Provides context and describes actions taken.")
-        
-        if mentions_metrics:
-            strengths.append("Highlights measurable impact and quantifiable results.")
-        
-        if has_technical_terms and is_technical:
-            strengths.append("Uses appropriate technical terminology.")
-        
-        if char_count > 500:
-            strengths.append("Comprehensive answer that demonstrates experience.")
-        
-        if not strengths:
-            strengths.append("Clear and direct communication.")
-        
-        # Build suggestions
         suggestions = []
-        if word_count < 60:
-            suggestions.append("Consider adding more detail to demonstrate depth of experience.")
-        elif word_count > 300:
-            suggestions.append("Consider being more concise while maintaining key points.")
         
-        if not has_star:
-            if not has_situation:
-                suggestions.append("Add context about the situation or background.")
-            if not has_task:
-                suggestions.append("Clearly state the task or objective you were working on.")
-            if not has_action:
-                suggestions.append("Describe the specific actions you took.")
-            if not has_result:
-                suggestions.append("Highlight the results or outcomes achieved.")
+        if word_count > 30: strengths.append("Good amount of detail.")
+        else: suggestions.append("Please elaborate more on your experience.")
         
-        if not mentions_metrics:
-            suggestions.append("Add quantifiable metrics or measurable results to strengthen your answer.")
+        if has_action: strengths.append("Clear description of actions taken.")
+        else: suggestions.append("Focus more on what YOU specifically did (Action).")
         
-        if is_technical and not has_technical_terms:
-            suggestions.append("Consider mentioning specific technologies or technical approaches used.")
-        
-        if not suggestions:
-            suggestions.append("Excellent answer! Minor refinements could enhance clarity.")
-        
-        # Generate summary
-        summary_parts = []
-        summary_parts.append(f"~{word_count} words")
-        if has_star:
-            summary_parts.append("STAR structure detected")
-        else:
-            summary_parts.append("STAR structure partially present")
-        if mentions_metrics:
-            summary_parts.append("includes measurable impact")
-        else:
-            summary_parts.append("could benefit from metrics")
-        
-        summary = ". ".join(summary_parts) + "."
+        if not strengths: strengths.append("Answer is relevant to the topic.")
+        if not suggestions: suggestions.append("Try to provide concrete examples.")
         
         return {
-            "summary": summary,
+            "summary": "AI Service unavailable (Quota/Error). Basic analysis provided.",
             "strengths": strengths,
             "suggestions": suggestions
         }
 
     def scoreInterviewAnswer(self, question: str, answer: str) -> float:
         """
-        Score an interview answer on a scale of 0-100.
-        Returns a float score.
+        Cevaba 0-100 arası puan verir.
         """
         if not answer or not answer.strip():
             return 0.0
         
-        words = answer.split()
-        word_count = len(words)
-        char_count = len(answer)
+        words = len(answer.split())
+        score = 60.0 
         
-        score = 50.0  # Base score
+        if 50 <= words <= 300: score += 20
+        if "result" in answer.lower(): score += 10
+        if "action" in answer.lower(): score += 10
         
-        # Length scoring (optimal: 100-200 words)
-        if 100 <= word_count <= 200:
-            score += 15
-        elif 60 <= word_count < 100 or 200 < word_count <= 300:
-            score += 10
-        elif word_count < 60:
-            score += 5
-        
-        # STAR structure scoring
-        has_situation = any(word in answer.lower() for word in ["situation", "context", "background", "when"])
-        has_task = any(word in answer.lower() for word in ["task", "goal", "objective", "challenge", "needed"])
-        has_action = any(word in answer.lower() for word in ["action", "did", "implemented", "created", "developed", "worked"])
-        has_result = any(word in answer.lower() for word in ["result", "outcome", "impact", "achieved", "improved", "increased", "decreased", "saved"])
-        
-        star_count = sum([has_situation, has_task, has_action, has_result])
-        score += star_count * 5  # 5 points per STAR component
-        
-        # Metrics scoring
-        mentions_metrics = any(word in answer.lower() for word in [
-            "percent", "%", "metric", "kpi", "score", "rating", 
-            "reduced", "improved", "increased", "decreased", "saved",
-            "faster", "slower", "more", "less", "better", "worse"
-        ])
-        if mentions_metrics:
-            score += 10
-        
-        # Ensure score is between 0 and 100
-        score = max(0.0, min(100.0, score))
-        
-        return round(score, 2)
+        return min(100.0, score)
