@@ -1,0 +1,70 @@
+.account-settings-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  min-height: 80vh;
+}
+
+.account-settings-card {
+  background: #2C2C2C;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 2.5rem 3rem;
+  backdrop-filter: blur(20px);
+  width: 100%;
+  max-width: 500px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+}
+
+.account-settings-card h2 {
+  margin: 0 0 2rem 0;
+  color: #FF8C00;
+  font-size: 1.75rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.input-group {
+  margin-bottom: 0;
+}
+
+.input-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #FFFFFF;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.settings-input {
+  width: 100%;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  color: #AAAAAA;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  cursor: not-allowed;
+}
+
+.settings-input:disabled {
+  opacity: 0.7;
+}
+
+.settings-note {
+  margin-top: 0.5rem;
+  color: #888888;
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
