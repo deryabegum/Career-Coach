@@ -7,6 +7,7 @@ import JobMatch from './components/JobMatch';
 import './Auth.css';
 import Login from './components/Login';
 import Register from './components/Register';
+import AccountSettings from './components/AccountSettings';
 
 function App() {
   // Add state for the token
@@ -41,6 +42,7 @@ function App() {
     if (currentPage === 'resume') return <Resume />;
     if (currentPage === 'interview') return <MockInterview />;
     if (currentPage === 'job-match') return <JobMatch />;
+    if (currentPage === 'account-settings') return <AccountSettings />;
     
     // Fallback if logged in but page state is weird
     return <Dashboard setCurrentPage={setCurrentPage} />;
@@ -79,6 +81,12 @@ function App() {
                 onClick={() => setCurrentPage('job-match')}
               >
                 Job Match
+              </button>
+              <button 
+                className={currentPage === 'account-settings' ? 'nav-link active' : 'nav-link'}
+                onClick={() => setCurrentPage('account-settings')}
+              >
+                Account Settings
               </button>
               <button 
                 className='nav-link'
