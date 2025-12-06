@@ -29,23 +29,43 @@ def create_app():
     CORS(app, resources={r"/api/*": {"origins": "*", "supports_credentials": True}})
     bcrypt.init_app(app)
     jwt = JWTManager(app)
-    
+
     # JWT Error Handlers
     @jwt.expired_token_loader
     def expired_token_callback(jwt_header, jwt_payload):
-        return jsonify({"error": "Token has expired", "message": "Your session has expired. Please log in again."}), 401
-    
+        return jsonify(
+            {
+                "error": "Token has expired",
+                "message": "Your session has expired. Please log in again.",
+            }
+        ), 401
+
     @jwt.invalid_token_loader
     def invalid_token_callback(error):
-        return jsonify({"error": "Invalid token", "message": "Your session is invalid. Please log in again."}), 401
-    
+        return jsonify(
+            {
+                "error": "Invalid token",
+                "message": "Your session is invalid. Please log in again.",
+            }
+        ), 401
+
     @jwt.unauthorized_loader
     def missing_token_callback(error):
-        return jsonify({"error": "Authorization required", "message": "Please log in to access this resource."}), 401
-    
+        return jsonify(
+            {
+                "error": "Authorization required",
+                "message": "Please log in to access this resource.",
+            }
+        ), 401
+
     @jwt.needs_fresh_token_loader
     def token_not_fresh_callback(jwt_header, jwt_payload):
-        return jsonify({"error": "Fresh token required", "message": "Please log in again."}), 401
+        return jsonify(
+            {
+                "error": "Fresh token required",
+                "message": "Please log in again.",
+            }
+        ), 401
 
     # Blueprints
     # main_bp (from main.py) contains /login, /register, /resume/upload
@@ -70,5 +90,9 @@ def create_app():
     # Mock Interview routes (/api/v1/mock-interview/*)
     from .features.mock_interview.api import bp as mock_interview_bp
     app.register_blueprint(mock_interview_bp)
+
+    # Career Resources routes (/api/v1/resources/*)
+    from .features.resources.api import bp as resources_bp
+    app.register_blueprint(resources_bp)
 
     return app
