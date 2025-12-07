@@ -21,3 +21,8 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+backend/instance/app.db
+backend/instance/*.db
+*.sqlite
+*.sqlite3
