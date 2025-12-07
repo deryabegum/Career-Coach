@@ -1,3 +1,4 @@
+# backend/app/features/jwt_auth/api.py
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import (
     create_access_token,
@@ -5,7 +6,7 @@ from flask_jwt_extended import (
     jwt_required,
     get_jwt_identity,
 )
-from backend.app.features.jwt_auth.service import (
+from .service import (
     create_user,
     get_user_by_email,
     verify_pw,
@@ -19,11 +20,15 @@ def register():
     data = request.get_json(force=True) or {}
     email = (data.get("email") or "").strip().lower()
     password = data.get("password") or ""
-    if not email or not password:
-        return jsonify({"error": "email and password required"}), 400
+    name = (data.get("name") or "").strip()
+
+    if not email or not password or not name:
+        return jsonify({"error": "email, password, and name are required"}), 400
+
     if get_user_by_email(email):
         return jsonify({"error": "email already exists"}), 409
-    create_user(email, password)
+
+    create_user(email, password, name)
     return jsonify({"ok": True}), 201
 
 
@@ -32,7 +37,7 @@ def login():
     """
     Verifies email/password and returns JWT access and refresh tokens.
 
-    Response shape keeps your existing key for the frontend:
+    Response shape:
       { "accessToken": "<JWT string>", "refreshToken": "<JWT string>" }
     """
     data = request.get_json(force=True) or {}
@@ -40,7 +45,8 @@ def login():
     password = data.get("password") or ""
 
     user = get_user_by_email(email)
-    if not user or not verify_pw(password, user["password"]):
+
+    if not user or not verify_pw(password, user["password_hash"]):
         return jsonify({"error": "invalid credentials"}), 401
 
     user_id = int(user["id"])

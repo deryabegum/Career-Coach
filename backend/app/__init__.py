@@ -35,7 +35,6 @@ def create_app():
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         },
         JSON_SORT_KEYS=False,
-
         # JWT expiry config
         JWT_ACCESS_TOKEN_EXPIRES=timedelta(minutes=30),
         JWT_REFRESH_TOKEN_EXPIRES=timedelta(days=7),
@@ -48,11 +47,42 @@ def create_app():
     bcrypt.init_app(app)
     jwt.init_app(app)
 
-    # Global handler for expired tokens so frontend can detect it
+    # JWT Error Handlers
     @jwt.expired_token_loader
     def expired_token_callback(jwt_header, jwt_payload):
-        # frontend will see { msg: "token_expired" } with 401
-        return jsonify({"msg": "token_expired"}), 401
+        return jsonify(
+            {
+                "error": "Token has expired",
+                "message": "Your session has expired. Please log in again.",
+            }
+        ), 401
+
+    @jwt.invalid_token_loader
+    def invalid_token_callback(error):
+        return jsonify(
+            {
+                "error": "Invalid token",
+                "message": "Your session is invalid. Please log in again.",
+            }
+        ), 401
+
+    @jwt.unauthorized_loader
+    def missing_token_callback(error):
+        return jsonify(
+            {
+                "error": "Authorization required",
+                "message": "Please log in to access this resource.",
+            }
+        ), 401
+
+    @jwt.needs_fresh_token_loader
+    def token_not_fresh_callback(jwt_header, jwt_payload):
+        return jsonify(
+            {
+                "error": "Fresh token required",
+                "message": "Please log in again.",
+            }
+        ), 401
 
     # Blueprints
     from .main import bp as main_bp
@@ -72,5 +102,13 @@ def create_app():
     # Keywords routes (/api/keywords/match)
     from .features.keywords.api import bp as keywords_bp
     app.register_blueprint(keywords_bp)
+
+    # Mock Interview routes (/api/v1/mock-interview/*)
+    from .features.mock_interview.api import bp as mock_interview_bp
+    app.register_blueprint(mock_interview_bp)
+
+    # Career Resources routes (/api/v1/resources/*)
+    from .features.resources.api import bp as resources_bp
+    app.register_blueprint(resources_bp)
 
     return app
