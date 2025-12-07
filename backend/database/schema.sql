@@ -1,3 +1,6 @@
+DROP TABLE IF EXISTS resources;
+DROP TABLE IF EXISTS answers;
+DROP TABLE IF EXISTS interviews;
 DROP TABLE IF EXISTS interview_answers;
 DROP TABLE IF EXISTS interview_questions;
 DROP TABLE IF EXISTS interview_sessions;
@@ -65,4 +68,38 @@ CREATE TABLE interview_answers (
   score INTEGER,
   FOREIGN KEY (session_id) REFERENCES interview_sessions (id),
   FOREIGN KEY (question_id) REFERENCES interview_questions (id)
+);
+
+CREATE TABLE interviews (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  role TEXT NOT NULL,
+  company TEXT NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Career resources (articles, resume guides, interview tips)
+CREATE TABLE resources (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  link  TEXT NOT NULL,
+  type  TEXT NOT NULL CHECK (type IN ('article','resume','interview'))
+);
+
+-- Sample career resources
+INSERT INTO resources (title, link, type) VALUES
+  ('How to Write a Strong Tech Resume', 'https://www.coursera.org/articles/software-engineer-resume', 'resume'),
+  ('Resume Checklist for CS Students', 'https://www.themuse.com/advice/your-resume-is-never-finished-checklist', 'resume'),
+  ('Behavioral Interview: STAR Method Guide', 'https://www.indeed.com/career-advice/interviewing/star-interview-method', 'interview'),
+  ('Common CS Interview Questions & Tips', 'https://www.interviewcake.com/article/python/coding-interview-tips', 'interview'),
+  ('Career Planning for New Grads', 'https://www.princetonreview.com/career-advice/career-planning-for-college-students', 'article'),
+  ('Networking Tips for Students', 'https://www.linkedin.com/pulse/networking-tips-college-students', 'article');
+
+CREATE TABLE answers (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  interview_id INTEGER NOT NULL,
+  qid TEXT NOT NULL,
+  prompt TEXT NOT NULL,
+  answer TEXT NOT NULL,
+  feedback_json TEXT,
+  FOREIGN KEY (interview_id) REFERENCES interviews (id)
 );
