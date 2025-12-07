@@ -1,9 +1,10 @@
-from flask import Flask
+from datetime import timedelta
+
+from flask import Flask, jsonify
 from flask_cors import CORS
 import os
 
-from .extensions import bcrypt
-from flask_jwt_extended import JWTManager
+from .extensions import bcrypt, jwt
 
 
 def create_app():
@@ -11,16 +12,33 @@ def create_app():
 
     app.config.update(
         SECRET_KEY=os.environ.get("SECRET_KEY", "dev"),
-        JWT_SECRET_KEY=os.environ.get("JWT_SECRET_KEY", os.environ.get("SECRET_KEY", "dev")),
+        JWT_SECRET_KEY=os.environ.get(
+            "JWT_SECRET_KEY",
+            os.environ.get("SECRET_KEY", "dev"),
+        ),
         MAX_CONTENT_LENGTH=10 * 1024 * 1024,  # 10MB
-        UPLOAD_FOLDER=os.path.join(os.path.dirname(__file__), "..", "instance", "uploads"),
-        DATABASE=os.path.join(os.path.dirname(__file__), "..", "instance", "app.db"),
+        UPLOAD_FOLDER=os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "instance",
+            "uploads",
+        ),
+        DATABASE=os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "instance",
+            "app.db",
+        ),
         ALLOWED_EXTS={"pdf", "docx"},
         ALLOWED_MIMES={
             "application/pdf",
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         },
         JSON_SORT_KEYS=False,
+
+        # JWT expiry config
+        JWT_ACCESS_TOKEN_EXPIRES=timedelta(minutes=30),
+        JWT_REFRESH_TOKEN_EXPIRES=timedelta(days=7),
     )
 
     os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
@@ -28,10 +46,15 @@ def create_app():
     # CORS and extensions
     CORS(app, resources={r"/api/*": {"origins": "*", "supports_credentials": True}})
     bcrypt.init_app(app)
-    JWTManager(app)
+    jwt.init_app(app)
+
+    # Global handler for expired tokens so frontend can detect it
+    @jwt.expired_token_loader
+    def expired_token_callback(jwt_header, jwt_payload):
+        # frontend will see { msg: "token_expired" } with 401
+        return jsonify({"msg": "token_expired"}), 401
 
     # Blueprints
-    # main_bp (from main.py) contains /login, /register, /resume/upload
     from .main import bp as main_bp
     app.register_blueprint(main_bp, url_prefix="/api")
 
@@ -49,6 +72,5 @@ def create_app():
     # Keywords routes (/api/keywords/match)
     from .features.keywords.api import bp as keywords_bp
     app.register_blueprint(keywords_bp)
-
 
     return app
