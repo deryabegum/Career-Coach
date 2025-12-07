@@ -1,0 +1,49 @@
+.resource-card {
+  background-color: #111827;
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.resource-card-header {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.resource-pill {
+  font-size: 0.7rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #f9fafb;
+}
+
+.resource-pill-article {
+  background-color: #2563eb;
+}
+
+.resource-pill-resume {
+  background-color: #059669;
+}
+
+.resource-pill-interview {
+  background-color: #f59e0b;
+}
+
+.resource-card-title {
+  margin: 0;
+  color: #f9fafb;
+  font-size: 1rem;
+}
+
+.resource-card-link {
+  font-size: 0.85rem;
+  color: #38bdf8;
+  text-decoration: underline;
+  align-self: flex-start;
+}

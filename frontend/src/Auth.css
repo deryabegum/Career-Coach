@@ -1,0 +1,199 @@
+/* Styles for both Login and Register pages */
+.auth-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  min-height: 80vh; /* Center it vertically */
+}
+
+.auth-card {
+  /* Borrowing from your .stat-card and .quick-actions */
+  background: #2C2C2C;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 2.5rem 3rem;
+  backdrop-filter: blur(20px);
+  width: 100%;
+  max-width: 450px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+}
+
+.auth-card h2 {
+  /* Borrowing from your .quick-actions h2 */
+  margin: 0 0 2rem 0;
+  color: #FF8C00;
+  font-size: 1.75rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.input-group {
+  margin-bottom: 1.5rem;
+}
+
+.input-group label {
+  /* Borrowing from your .stat-content h3 */
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #FFFFFF;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.auth-input {
+  width: 100%;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  color: #FFFFFF;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+}
+
+.auth-input:focus {
+  outline: none;
+  border-color: #FF8C00;
+  box-shadow: 0 0 15px rgba(255, 140, 0, 0.3);
+}
+
+.auth-button {
+  /* This is the primary orange button style */
+  width: 100%;
+  padding: 1rem;
+  border: none;
+  border-radius: 12px;
+  background-color: #FF8C00;
+  color: white;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.auth-button:hover {
+  background-color: #FF9500;
+  box-shadow: 0 10px 20px rgba(255, 140, 0, 0.2);
+  transform: translateY(-2px);
+}
+
+.auth-error {
+  color: #FF8C00;
+  margin-top: 1.5rem;
+  text-align: center;
+  font-weight: 500;
+  background: rgba(255, 140, 0, 0.1);
+  padding: 0.75rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 140, 0, 0.3);
+}
+
+.auth-success {
+  color: #FF8C00;
+  margin-top: 1.5rem;
+  text-align: center;
+  font-weight: 500;
+  background: rgba(255, 140, 0, 0.1);
+  padding: 0.75rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 140, 0, 0.3);
+}
+
+.auth-toggle-link {
+  background: none;
+  border: none;
+  color: #FF8C00;
+  cursor: pointer;
+  margin-top: 1.5rem;
+  display: block;
+  width: 100%;
+  text-align: center;
+  padding: 0.5rem;
+  font-weight: 500;
+}
+
+.auth-toggle-link:hover {
+  text-decoration: underline;
+}
+/* Add these new styles to the end of Auth.css */
+
+.auth-textarea {
+  width: 100%;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  color: #FFFFFF;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  min-height: 200px;
+  font-family: inherit;
+}
+
+.auth-textarea:focus {
+  outline: none;
+  border-color: #FF8C00;
+  box-shadow: 0 0 15px rgba(255, 140, 0, 0.3);
+}
+
+.results-container {
+  margin-top: 2rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 2rem;
+}
+
+.results-score {
+  color: #FF8C00;
+  font-size: 2.5rem;
+  font-weight: 800;
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.results-columns {
+  display: flex;
+  flex-direction: row;
+  gap: 2rem;
+}
+
+.results-column {
+  flex: 1;
+}
+
+.results-column h5 {
+  margin: 0 0 1rem 0;
+  color: #FFFFFF;
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding-bottom: 0.5rem;
+}
+
+.results-column-matched h5 {
+  border-bottom: 2px solid #FF8C00;
+}
+
+.results-column-missing h5 {
+  border-bottom: 2px solid #FF8C00;
+}
+
+.results-list {
+  list-style-type: none;
+  padding-left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.results-list-item {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-weight: 500;
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
