@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Timer, ChevronLeft, ChevronRight, Play, Pause, RefreshCw, Send, Sparkles, CheckCircle2, XCircle, BookOpenText, ListChecks } from "lucide-react";
+import { Timer, ChevronLeft, ChevronRight, Play, Pause, RefreshCw, Send, Sparkles, CheckCircle2, XCircle, BookOpenText, ListChecks, Download } from "lucide-react";
 import { api } from "./api";
 import "./MockInterview.css";
+import jsPDF from "jspdf";
 
 /**
  * MockInterview.js (page-level component)
@@ -240,6 +241,162 @@ export default function MockInterviewPage() {
     URL.revokeObjectURL(url);
   };
 
+  const downloadPDF = () => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 20;
+    const maxWidth = pageWidth - 2 * margin;
+    let yPosition = margin;
+
+    // Helper function to add a new page if needed
+    const checkNewPage = (requiredHeight) => {
+      if (yPosition + requiredHeight > pageHeight - margin) {
+        doc.addPage();
+        yPosition = margin;
+        return true;
+      }
+      return false;
+    };
+
+    // Helper function to add text with word wrapping
+    const addWrappedText = (text, fontSize, isBold = false, color = [0, 0, 0]) => {
+      doc.setFontSize(fontSize);
+      doc.setTextColor(color[0], color[1], color[2]);
+      if (isBold) {
+        doc.setFont(undefined, "bold");
+      } else {
+        doc.setFont(undefined, "normal");
+      }
+      
+      const lines = doc.splitTextToSize(text, maxWidth);
+      lines.forEach((line) => {
+        checkNewPage(7);
+        doc.text(line, margin, yPosition);
+        yPosition += 7;
+      });
+      doc.setFont(undefined, "normal");
+    };
+
+    // Title
+    doc.setFontSize(20);
+    doc.setTextColor(59, 130, 246);
+    doc.setFont(undefined, "bold");
+    doc.text("Mock Interview Report", margin, yPosition);
+    yPosition += 15;
+
+    // Interview details
+    doc.setFontSize(12);
+    doc.setTextColor(0, 0, 0);
+    doc.setFont(undefined, "normal");
+    doc.text(`Role: ${role}`, margin, yPosition);
+    yPosition += 7;
+    doc.text(`Company: ${company}`, margin, yPosition);
+    yPosition += 7;
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, margin, yPosition);
+    yPosition += 15;
+
+    // Questions and Answers
+    questions.forEach((q, index) => {
+      checkNewPage(20);
+      
+      // Question number and prompt
+      addWrappedText(`Question ${index + 1}`, 14, true, [26, 26, 26]);
+      yPosition += 3;
+      addWrappedText(q.prompt, 11, true, [55, 65, 81]);
+      yPosition += 5;
+
+      // Tags if available
+      if (q.tags && q.tags.length > 0) {
+        doc.setFontSize(9);
+        doc.setTextColor(107, 114, 128);
+        const tagsText = `Tags: ${q.tags.join(", ")}`;
+        doc.text(tagsText, margin, yPosition);
+        yPosition += 6;
+      }
+
+      // Answer
+      const answer = answers[q.id] || "(No answer provided)";
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      doc.setFont(undefined, "bold");
+      doc.text("Your Answer:", margin, yPosition);
+      yPosition += 6;
+      doc.setFont(undefined, "normal");
+      addWrappedText(answer, 10, false, [55, 65, 81]);
+      yPosition += 5;
+
+      // Feedback if available
+      if (feedback[q.id]) {
+        yPosition += 3;
+        doc.setFontSize(10);
+        doc.setFont(undefined, "bold");
+        doc.setTextColor(59, 130, 246);
+        doc.text("AI Feedback:", margin, yPosition);
+        yPosition += 6;
+        doc.setFont(undefined, "normal");
+        doc.setTextColor(0, 0, 0);
+
+        if (feedback[q.id].summary) {
+          doc.setFont(undefined, "bold");
+          doc.text("Summary:", margin, yPosition);
+          yPosition += 6;
+          doc.setFont(undefined, "normal");
+          addWrappedText(feedback[q.id].summary, 9, false, [55, 65, 81]);
+          yPosition += 3;
+        }
+
+        if (feedback[q.id].strengths && feedback[q.id].strengths.length > 0) {
+          doc.setFont(undefined, "bold");
+          doc.setTextColor(5, 150, 105);
+          doc.text("Strengths:", margin, yPosition);
+          yPosition += 6;
+          doc.setFont(undefined, "normal");
+          doc.setTextColor(0, 0, 0);
+          feedback[q.id].strengths.forEach((strength) => {
+            addWrappedText(`• ${strength}`, 9, false, [55, 65, 81]);
+            yPosition += 1;
+          });
+          yPosition += 3;
+        }
+
+        if (feedback[q.id].suggestions && feedback[q.id].suggestions.length > 0) {
+          doc.setFont(undefined, "bold");
+          doc.setTextColor(217, 119, 6);
+          doc.text("Suggestions:", margin, yPosition);
+          yPosition += 6;
+          doc.setFont(undefined, "normal");
+          doc.setTextColor(0, 0, 0);
+          feedback[q.id].suggestions.forEach((suggestion) => {
+            addWrappedText(`• ${suggestion}`, 9, false, [55, 65, 81]);
+            yPosition += 1;
+          });
+          yPosition += 3;
+        }
+      }
+
+      // Add spacing between questions
+      yPosition += 10;
+    });
+
+    // Footer
+    const totalPages = doc.internal.pages.length - 1;
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(128, 128, 128);
+      doc.text(
+        `Page ${i} of ${totalPages}`,
+        pageWidth - margin - 20,
+        pageHeight - 10
+      );
+    }
+
+    // Save the PDF
+    const fileName = `mock-interview-report-${role.replace(/\s+/g, "-")}-${Date.now()}.pdf`;
+    doc.save(fileName);
+  };
+
   // Keyboard shortcuts
   useEffect(() => {
     const onKey = (e) => {
@@ -449,6 +606,11 @@ export default function MockInterviewPage() {
                       <p>{answers[q.id] || <span style={{ color: '#666' }}>(no answer)</span>}</p>
                     </div>
                   ))}
+                </div>
+                <div className="card-footer">
+                  <button className="button primary" onClick={downloadPDF}>
+                    <Download size={16} style={{ marginRight: '0.5rem' }} />Download Report
+                  </button>
                 </div>
               </div>
             )}

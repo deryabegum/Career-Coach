@@ -1,0 +1,77 @@
+.careerhub-container {
+  max-width: 900px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+
+.careerhub-header h1 {
+  color: #f9fafb;
+  margin-bottom: 0.25rem;
+}
+
+.careerhub-header p {
+  color: #9ca3af;
+  margin-top: 0;
+}
+
+.careerhub-scores {
+  display: flex;
+  gap: 1rem;
+  margin: 1.5rem 0;
+  flex-wrap: wrap;
+}
+
+.score-card {
+  flex: 1;
+  min-width: 200px;
+  background: #111827;
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+}
+
+.score-card h3 {
+  margin: 0;
+  color: #e5e7eb;
+  font-size: 0.9rem;
+}
+
+.score-number {
+  font-size: 1.7rem;
+  font-weight: 600;
+  color: #fbbf24;
+  margin-top: 0.4rem;
+}
+
+.careerhub-section {
+  margin-top: 2rem;
+}
+
+.careerhub-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.careerhub-filter {
+  background: #111827;
+  color: #f9fafb;
+  border-radius: 8px;
+  border: 1px solid #374151;
+  padding: 0.4rem 0.8rem;
+}
+
+.careerhub-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.careerhub-status {
+  color: #9ca3af;
+}
+
+.careerhub-error {
+  color: #fca5a5;
+}
