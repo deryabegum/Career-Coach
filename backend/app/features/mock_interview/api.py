@@ -71,6 +71,12 @@ def get_feedback():
                 role, 
                 company
             )
+            try:
+                score = ai_helper.scoreInterviewAnswer(question_prompt, answer_text)
+                if isinstance(feedback, dict):
+                    feedback["score"] = round(float(score), 2)
+            except Exception:
+                pass
             
             return jsonify(feedback), 200
         finally:
@@ -131,4 +137,3 @@ def get_user_sessions():
                 pass
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-

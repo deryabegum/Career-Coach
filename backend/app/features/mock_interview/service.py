@@ -114,6 +114,8 @@ def submit_answers(conn, session_id: int, user_id: int, answers: dict, role: str
         
         # Calculate score (0-100)
         score = ai_helper.scoreInterviewAnswer(question_prompt, answer_text)
+        if isinstance(feedback, dict):
+            feedback["score"] = round(float(score), 2)
         
         all_feedback[qid] = feedback
         all_scores.append(score)
@@ -133,4 +135,3 @@ def submit_answers(conn, session_id: int, user_id: int, answers: dict, role: str
         "feedback": all_feedback,
         "message": "Interview submitted successfully"
     }
-

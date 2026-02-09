@@ -108,7 +108,38 @@ def upload_resume():
     finally:
         db.close_db()
 
-    # 4. Return success response
+    # 4. Score resume and store feedback report
+    try:
+        resume_text = ""
+        sections = parsed_resume_data.get("sections") or []
+        for section in sections:
+            if section.get("name") == "full_content":
+                resume_text = section.get("content") or ""
+                break
+        if not resume_text:
+            resume_text = parsed_resume_data.get("raw_text") or ""
+
+        score_payload = ai_helper.scoreResume(resume_text)
+        score_val = int(score_payload.get("score", 0))
+        summary = score_payload.get("summary") or "Resume scored."
+        details = {
+            "strengths": score_payload.get("strengths") or [],
+            "weaknesses": score_payload.get("weaknesses") or [],
+            "suggestions": score_payload.get("suggestions") or [],
+        }
+
+        db_conn.execute(
+            """
+            INSERT INTO feedback_reports (resume_id, score, summary, details_json)
+            VALUES (?, ?, ?, ?)
+            """,
+            (cursor.lastrowid, score_val, summary, json.dumps(details)),
+        )
+        db_conn.commit()
+    except Exception as e:
+        current_app.logger.error(f"Failed to save resume score: {e}")
+
+    # 5. Return success response
     return jsonify({
         "message": "Resume uploaded and parsed successfully",
         "resume_db_id": cursor.lastrowid, # Get the ID of the new resume record
@@ -207,6 +238,35 @@ def resume_update():
             (new_filepath, json.dumps(parsed), row["id"], int(user_id)),
         )
         db_conn.commit()
+
+        try:
+            resume_text = ""
+            sections = parsed.get("sections") or []
+            for section in sections:
+                if section.get("name") == "full_content":
+                    resume_text = section.get("content") or ""
+                    break
+            if not resume_text:
+                resume_text = parsed.get("raw_text") or ""
+
+            score_payload = AIHelper().scoreResume(resume_text)
+            score_val = int(score_payload.get("score", 0))
+            summary = score_payload.get("summary") or "Resume scored."
+            details = {
+                "strengths": score_payload.get("strengths") or [],
+                "weaknesses": score_payload.get("weaknesses") or [],
+                "suggestions": score_payload.get("suggestions") or [],
+            }
+            db_conn.execute(
+                """
+                INSERT INTO feedback_reports (resume_id, score, summary, details_json)
+                VALUES (?, ?, ?, ?)
+                """,
+                (row["id"], score_val, summary, json.dumps(details)),
+            )
+            db_conn.commit()
+        except Exception as e:
+            current_app.logger.error(f"Failed to save resume score: {e}")
     except Exception as e:
         current_app.logger.error(f"Failed to update resume record: {e}")
         os.remove(new_filepath)
