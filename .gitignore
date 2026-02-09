@@ -17,3 +17,6 @@ env/
 instance/
 uploads/
 EOF
+# Python
+__pycache__/
+*.py[cod]
