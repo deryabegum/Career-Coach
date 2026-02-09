@@ -23,13 +23,32 @@ class MockInterviewDAO:
     def save_answer(self, interview_id: int, qid: str, prompt: str, answer: str, feedback_json: dict = None):
         """Save an answer to the answers table"""
         feedback_str = json.dumps(feedback_json) if feedback_json else None
-        self.conn.execute(
+        existing = self.conn.execute(
             """
-            INSERT INTO answers (interview_id, qid, prompt, answer, feedback_json)
-            VALUES (?, ?, ?, ?, ?)
+            SELECT id FROM answers
+            WHERE interview_id = ? AND qid = ?
+            LIMIT 1
             """,
-            (interview_id, qid, prompt, answer, feedback_str)
-        )
+            (interview_id, qid),
+        ).fetchone()
+
+        if existing:
+            self.conn.execute(
+                """
+                UPDATE answers
+                SET prompt = ?, answer = ?, feedback_json = ?
+                WHERE id = ?
+                """,
+                (prompt, answer, feedback_str, existing["id"]),
+            )
+        else:
+            self.conn.execute(
+                """
+                INSERT INTO answers (interview_id, qid, prompt, answer, feedback_json)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (interview_id, qid, prompt, answer, feedback_str)
+            )
         self.conn.commit()
 
     def get_interview(self, interview_id: int, user_id: int = None):

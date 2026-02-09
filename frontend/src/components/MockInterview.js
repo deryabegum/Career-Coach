@@ -245,6 +245,7 @@ export default function MockInterview() {
     try {
       const data = await api.getInterviewFeedback({
         session_id: sessionId,
+        qid: current.id,
         question_prompt: current.prompt,
         answer_text: a,
         role, company
