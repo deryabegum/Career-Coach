@@ -314,6 +314,25 @@
   z-index: 2;
 }
 
+.resume-editor {
+  width: 100%;
+  min-height: 280px;
+  padding: 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.35);
+  color: #f3f3f3;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  outline: none;
+  resize: vertical;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+}
+
+.resume-editor::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
 .view-button, .delete-button {
   padding: 0.875rem 1.75rem;
   border: none;
