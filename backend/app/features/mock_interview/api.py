@@ -48,6 +48,7 @@ def get_feedback():
     try:
         data = request.get_json() or {}
         session_id = data.get("session_id")
+        qid = data.get("qid") or "adhoc"
         question_prompt = data.get("question_prompt")
         answer_text = data.get("answer_text", "").strip()
         role = data.get("role", "")
@@ -77,6 +78,13 @@ def get_feedback():
                     feedback["score"] = round(float(score), 2)
             except Exception:
                 pass
+
+            if session_id:
+                try:
+                    dao = MockInterviewDAO(conn)
+                    dao.save_answer(session_id, qid, question_prompt, answer_text, feedback)
+                except Exception:
+                    pass
             
             return jsonify(feedback), 200
         finally:
