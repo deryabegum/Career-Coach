@@ -243,11 +243,11 @@ export default function MockInterview() {
     });
 
     try {
-      const data = await api.getInterviewFeedback({
+      const data = await api.evaluateInterviewTranscript({
         session_id: sessionId,
         qid: current.id,
         question_prompt: current.prompt,
-        answer_text: a,
+        transcript: a,
         role, company
       });
       setFeedback((prev) => ({ ...prev, [current.id]: data }));
