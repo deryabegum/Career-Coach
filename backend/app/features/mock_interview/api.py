@@ -13,6 +13,46 @@ def _current_user_id() -> int:
         raise PermissionError("No JWT identity found")
     return int(uid)
 
+
+def _evaluate_answer_payload(conn, data: dict):
+    session_id = data.get("session_id")
+    qid = data.get("qid") or "adhoc"
+    question_prompt = data.get("question_prompt")
+    # Accept transcript-first payload, then fallback to answer_text for compatibility.
+    transcript = (data.get("transcript") or data.get("answer_text") or "").strip()
+    role = data.get("role", "")
+    company = data.get("company", "")
+
+    if not transcript:
+        return jsonify({"error": "Transcript is required"}), 400
+
+    if not question_prompt:
+        return jsonify({"error": "Question prompt is required"}), 400
+
+    ai_helper = AIHelper()
+    feedback = ai_helper.generateInterviewFeedback(
+        question_prompt,
+        transcript,
+        role,
+        company
+    )
+
+    try:
+        score = ai_helper.scoreInterviewAnswer(question_prompt, transcript)
+        if isinstance(feedback, dict):
+            feedback["score"] = round(float(score), 2)
+    except Exception:
+        pass
+
+    if session_id:
+        try:
+            dao = MockInterviewDAO(conn)
+            dao.save_answer(session_id, qid, question_prompt, transcript, feedback)
+        except Exception:
+            pass
+
+    return jsonify(feedback), 200
+
 @bp.post("/sessions")
 @jwt_required()
 def create_interview_session():
@@ -46,33 +86,32 @@ def create_interview_session():
 def get_feedback():
     """Get AI feedback for a single answer"""
     try:
-        data = request.get_json() or {}
-        session_id = data.get("session_id")
-        question_prompt = data.get("question_prompt")
-        answer_text = data.get("answer_text", "").strip()
-        role = data.get("role", "")
-        company = data.get("company", "")
-        
-        if not answer_text:
-            return jsonify({"error": "Answer text is required"}), 400
-        
-        if not question_prompt:
-            return jsonify({"error": "Question prompt is required"}), 400
-        
-        user_id = _current_user_id()
+        _current_user_id()
         conn = get_db_conn()
-        
+
         try:
-            # Generate feedback using AIHelper
-            ai_helper = AIHelper()
-            feedback = ai_helper.generateInterviewFeedback(
-                question_prompt, 
-                answer_text, 
-                role, 
-                company
-            )
-            
-            return jsonify(feedback), 200
+            data = request.get_json() or {}
+            return _evaluate_answer_payload(conn, data)
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.post("/evaluate")
+@jwt_required()
+def evaluate_transcript():
+    """Evaluate transcript text for a single interview answer."""
+    try:
+        _current_user_id()
+        conn = get_db_conn()
+
+        try:
+            data = request.get_json() or {}
+            return _evaluate_answer_payload(conn, data)
         finally:
             try:
                 conn.close()
@@ -131,4 +170,3 @@ def get_user_sessions():
                 pass
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-

@@ -16,4 +16,9 @@ env/
 # Flask runtime
 instance/
 uploads/
-EOF
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+!**/.env.example

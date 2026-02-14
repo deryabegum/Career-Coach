@@ -80,6 +80,12 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  evaluateInterviewTranscript: (data) =>
+    request('/api/v1/mock-interview/evaluate', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
   submitInterview: (data) =>
     request('/api/v1/mock-interview/submit', {
       method: 'POST',

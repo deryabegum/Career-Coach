@@ -50,9 +50,11 @@ def login():
         return jsonify({"error": "invalid credentials"}), 401
 
     user_id = int(user["id"])
+    # Store identity as string to avoid JWT "sub" claim type issues.
+    identity = str(user_id)
 
-    access_token = create_access_token(identity=user_id)
-    refresh_token = create_refresh_token(identity=user_id)
+    access_token = create_access_token(identity=identity)
+    refresh_token = create_refresh_token(identity=identity)
 
     return jsonify(
         {
@@ -68,7 +70,7 @@ def refresh():
     """
     Uses a valid refresh token to issue a new access token.
     """
-    identity = int(get_jwt_identity())
+    identity = str(get_jwt_identity())
     new_access_token = create_access_token(identity=identity)
     return jsonify({"accessToken": new_access_token}), 200
 
