@@ -184,9 +184,15 @@ const Resume = () => {
             <div className="resume-actions">
               <button className="delete-button" onClick={async () => {
                 try {
-                  const r = await fetch('/api/resume', { method: 'DELETE' });
+                  const token = localStorage.getItem('token');
+                  if (!token) throw new Error('You are not logged in. Please log in first.');
+                  const r = await fetch('/api/resume', {
+                    method: 'DELETE',
+                    headers: { Authorization: `Bearer ${token}` },
+                  });
                   if (!r.ok) throw new Error(`HTTP ${r.status}`);
                   setUploadedResume(null);
+                  setResumeText('');
                 } catch (e) { alert(`Delete failed: ${e.message}`); }
               }}>
                 {/* ... delete button svg ... */}

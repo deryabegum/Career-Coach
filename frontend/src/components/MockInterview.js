@@ -48,9 +48,12 @@ export default function MockInterview() {
   const [stream, setStream] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
   const [videoUrl, setVideoUrl] = useState(null);
+  const [recordings, setRecordings] = useState({});
   const videoRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
+  const recordingsRef = useRef({});
+  const currentQuestionIdRef = useRef(null);
 
   // --- SPEECH RECOGNITION REF ---
   const recognitionRef = useRef(null);
@@ -59,6 +62,26 @@ export default function MockInterview() {
   const current = questions[index];
   const timerRef = useRef(null);
   const progressValue = Math.round(((index + 1) / questions.length) * 100);
+
+  useEffect(() => {
+    recordingsRef.current = recordings;
+  }, [recordings]);
+
+  useEffect(() => {
+    currentQuestionIdRef.current = current?.id || null;
+  }, [current]);
+
+  const clearAllRecordings = useCallback(() => {
+    Object.values(recordingsRef.current).forEach((url) => {
+      try {
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        console.error("Failed to revoke recording URL:", e);
+      }
+    });
+    recordingsRef.current = {};
+    setRecordings({});
+  }, []);
 
   // --- RESET FUNCTION (FIXES THE LOOP ISSUE) ---
   const handleReset = () => {
@@ -71,9 +94,12 @@ export default function MockInterview() {
     setSessionId(null);
     setRunning(false);
     setRemaining(secondsPerQ);
+    setVideoUrl(null);
     
     // 2. Stop any active media
+    stopRecording();
     stopCamera();
+    clearAllRecordings();
   };
 
   // --- CAMERA FUNCTIONS ---
@@ -97,13 +123,32 @@ export default function MockInterview() {
     }
   };
 
+  // Keep live camera bound whenever we are in live-preview mode.
+  useEffect(() => {
+    if (!videoUrl && stream && videoRef.current) {
+      videoRef.current.srcObject = stream;
+    }
+  }, [stream, videoUrl, index]);
+
   const startRecording = () => {
-    if (!stream) return;
+    if (!stream || !current?.id) return;
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") return;
+
     setIsRecording(true);
     chunksRef.current = [];
+    const questionId = current.id;
     
-    // 1. Start Video Recording
-    const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+    // Prefer compatible mime type per browser.
+    const preferredTypes = [
+      "video/webm;codecs=vp9,opus",
+      "video/webm;codecs=vp8,opus",
+      "video/webm",
+    ];
+    const selectedType = preferredTypes.find((t) => window.MediaRecorder?.isTypeSupported?.(t)) || "";
+    const recorder = selectedType
+      ? new MediaRecorder(stream, { mimeType: selectedType })
+      : new MediaRecorder(stream);
+
     mediaRecorderRef.current = recorder;
 
     recorder.ondataavailable = (e) => {
@@ -111,9 +156,23 @@ export default function MockInterview() {
     };
 
     recorder.onstop = () => {
-      const blob = new Blob(chunksRef.current, { type: 'video/webm' });
+      const blob = new Blob(chunksRef.current, { type: selectedType || "video/webm" });
       const url = URL.createObjectURL(blob);
-      setVideoUrl(url);
+      setRecordings((prev) => {
+        const next = { ...prev };
+        if (next[questionId]) {
+          try {
+            URL.revokeObjectURL(next[questionId]);
+          } catch (e) {
+            console.error("Failed to revoke old recording URL:", e);
+          }
+        }
+        next[questionId] = url;
+        return next;
+      });
+      if (currentQuestionIdRef.current === questionId) {
+        setVideoUrl(url);
+      }
     };
 
     recorder.start();
@@ -137,7 +196,7 @@ export default function MockInterview() {
         if (finalTranscript) {
           setAnswers(prev => ({
             ...prev,
-            [current.id]: (prev[current.id] || "") + finalTranscript
+            [questionId]: (prev[questionId] || "") + finalTranscript
           }));
         }
       };
@@ -157,13 +216,18 @@ export default function MockInterview() {
   };
 
   const stopRecording = () => {
-    // 1. Stop Video
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== "inactive") {
+      try {
+        recorder.requestData();
+      } catch (e) {
+        // Some browsers can throw if requestData is not available in current state.
+      }
+      recorder.stop();
     }
+    mediaRecorderRef.current = null;
+    setIsRecording(false);
 
-    // 2. Stop Speech Recognition
     if (recognitionRef.current) {
       recognitionRef.current.stop();
       recognitionRef.current = null;
@@ -216,14 +280,24 @@ export default function MockInterview() {
   useEffect(() => {
     if (!started) return;
     setRemaining(secondsPerQ);
-    // Reset video for new question
-    setVideoUrl(null);
-    setIsRecording(false); 
-  }, [index, secondsPerQ, started, setRemaining]);
+    // Switching question must stop active capture and show saved recording for that question.
+    stopRecording();
+    setVideoUrl(recordingsRef.current[current.id] || null);
+  }, [current.id, secondsPerQ, started, setRemaining]); // recordings not included intentionally
 
   // Cleanup on unmount
   useEffect(() => {
-    return () => stopCamera();
+    return () => {
+      stopRecording();
+      stopCamera();
+      Object.values(recordingsRef.current).forEach((url) => {
+        try {
+          URL.revokeObjectURL(url);
+        } catch (e) {
+          console.error("Failed to revoke recording URL:", e);
+        }
+      });
+    };
   }, []);
 
   const next = () => setIndex((i) => Math.min(i + 1, questions.length - 1));
@@ -341,6 +415,12 @@ export default function MockInterview() {
                                     <strong>AI Feedback:</strong> {feedback[q.id].summary}
                                 </div>
                             )}
+                            {recordings[q.id] && (
+                                <div style={{ marginTop: "12px" }}>
+                                    <strong>Recording:</strong>
+                                    <video src={recordings[q.id]} controls className="live-video" />
+                                </div>
+                            )}
                         </div>
                     ))}
                 </div>
@@ -401,7 +481,22 @@ export default function MockInterview() {
                     )}
                     
                     {videoUrl && (
-                        <button className="button outline" onClick={() => setVideoUrl(null)}>
+                        <button className="button outline" onClick={() => {
+                            const existing = recordings[current.id];
+                            if (existing) {
+                              try {
+                                URL.revokeObjectURL(existing);
+                              } catch (e) {
+                                console.error("Failed to revoke recording URL:", e);
+                              }
+                            }
+                            setRecordings((prev) => {
+                              const next = { ...prev };
+                              delete next[current.id];
+                              return next;
+                            });
+                            setVideoUrl(null);
+                        }}>
                             <RefreshCw size={16}/> Retake
                         </button>
                     )}
