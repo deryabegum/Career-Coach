@@ -10,31 +10,69 @@ const Dashboard = ({ setCurrentPage }) => {
     let alive = true;
     (async () => {
       try {
-        // --- 1. GET THE TOKEN ---
+        // 1. Get token
         const token = localStorage.getItem('token');
         if (!token) {
           throw new Error('No token found. Please log in.');
         }
 
-        // --- 2. CREATE HEADERS WITH THE TOKEN ---
+        // 2. Build headers with Authorization
         const headers = new Headers();
         headers.append('Authorization', `Bearer ${token}`);
 
-        // --- 3. ADD HEADERS TO THE FETCH REQUEST ---
-        const res = await fetch('/api/v1/dashboard/summary', { headers: headers });
-        
-        if (!res.ok) {
-          if (res.status === 401) {
-            throw new Error('Session expired. Please log in again.');
+        // 3. Request dashboard summary with headers
+        const res = await fetch('/api/v1/dashboard/summary', { 
+          headers,
+          method: 'GET',
+          credentials: 'include',
+        });
+
+        // 4. Handle 401 / session expired with auto-logout
+        if (res.status === 401) {
+          let body = {};
+          try {
+            body = await res.json();
+          } catch {
+            body = {};
           }
-          throw new Error(`HTTP ${res.status}`);
+
+          if (body.msg === 'token_expired') {
+            if (alive) {
+              setErr('Your session has expired. Please log in again.');
+            }
+          } else {
+            if (alive) {
+              setErr('You are not authorized. Please log in again.');
+            }
+          }
+
+          localStorage.removeItem('token');
+          localStorage.removeItem('refreshToken');
+
+          if (alive) {
+            setLoading(false);
+            setCurrentPage('login');
+          }
+          return;
         }
-        
+
+        // 5. Handle other non-OK errors
+        if (!res.ok) {
+          let errorMessage = `HTTP ${res.status}`;
+          try {
+            const errorData = await res.json();
+            errorMessage = errorData.message || errorData.error || errorMessage;
+          } catch {
+            errorMessage = res.statusText || errorMessage;
+          }
+          throw new Error(errorMessage);
+        }
+
+        // 6. Success: parse data and populate stats
         const data = await res.json();
         if (alive) {
           setUserStats({
-            // 4. I've updated 'name' to try and get it from your backend data
-            name: data.name ?? 'User', 
+            name: data.name ?? 'User',
             resumeScore: data.lastResumeScore ?? 85,
             interviewsCompleted: data.totals?.interviews ?? 0, 
             jobMatches: data.totals?.matches ?? 0, 
@@ -44,15 +82,17 @@ const Dashboard = ({ setCurrentPage }) => {
           setLoading(false);
         }
       } catch (e) {
-        if (alive) { setErr(e.message); setLoading(false); }
+        if (alive) { 
+          setErr(e.message); 
+          setLoading(false); 
+        }
       }
     })();
     return () => { alive = false; };
-  }, []); // This empty array is correct, it should only run once.
+  }, [setCurrentPage]);
 
   if (loading) return <div className="dashboard-container"><p>Loading…</p></div>;
   
-  // Update the error display to be more prominent
   if (err) return (
     <div className="auth-container">
       <div className="auth-card">
