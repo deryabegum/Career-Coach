@@ -9,7 +9,6 @@ from werkzeug.utils import secure_filename
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from . import db
 from .services.ai_helper import AIHelper
-import docx
 
 bp = Blueprint("main", __name__)
 
@@ -24,29 +23,6 @@ def _allowed_file(upload) -> bool:
     allowed_mimes = current_app.config.get("ALLOWED_MIMES") or current_app.config.get("ALLOWED_MIMETYPES", set())
     return ext in allowed_exts and (upload.mimetype in allowed_mimes)
 
-def _latest_resume_row(user_id: int):
-    db_conn = db.get_db()
-    return db_conn.execute(
-        """
-        SELECT id, file_path, parsed_json, created_at
-        FROM resumes
-        WHERE user_id = ?
-        ORDER BY id DESC
-        LIMIT 1
-        """,
-        (user_id,),
-    ).fetchone()
-
-def _save_text_as_docx(text: str, upload_dir: str) -> str:
-    os.makedirs(upload_dir, exist_ok=True)
-    rid = str(uuid4())
-    filename = f"{rid}_edited_resume.docx"
-    filepath = os.path.join(upload_dir, filename)
-    document = docx.Document()
-    for line in text.splitlines():
-        document.add_paragraph(line)
-    document.save(filepath)
-    return filepath
 
 # --- THIS IS THE UPDATED FUNCTION ---
 @bp.post("/resume/upload")
@@ -108,38 +84,7 @@ def upload_resume():
     finally:
         db.close_db()
 
-    # 4. Score resume and store feedback report
-    try:
-        resume_text = ""
-        sections = parsed_resume_data.get("sections") or []
-        for section in sections:
-            if section.get("name") == "full_content":
-                resume_text = section.get("content") or ""
-                break
-        if not resume_text:
-            resume_text = parsed_resume_data.get("raw_text") or ""
-
-        score_payload = ai_helper.scoreResume(resume_text)
-        score_val = int(score_payload.get("score", 0))
-        summary = score_payload.get("summary") or "Resume scored."
-        details = {
-            "strengths": score_payload.get("strengths") or [],
-            "weaknesses": score_payload.get("weaknesses") or [],
-            "suggestions": score_payload.get("suggestions") or [],
-        }
-
-        db_conn.execute(
-            """
-            INSERT INTO feedback_reports (resume_id, score, summary, details_json)
-            VALUES (?, ?, ?, ?)
-            """,
-            (cursor.lastrowid, score_val, summary, json.dumps(details)),
-        )
-        db_conn.commit()
-    except Exception as e:
-        current_app.logger.error(f"Failed to save resume score: {e}")
-
-    # 5. Return success response
+    # 4. Return success response
     return jsonify({
         "message": "Resume uploaded and parsed successfully",
         "resume_db_id": cursor.lastrowid, # Get the ID of the new resume record
@@ -147,159 +92,27 @@ def upload_resume():
         "size": os.path.getsize(filepath),
         "parsed_data": parsed_resume_data
     }), 200
-
-
-@bp.get("/resume/latest")
-@jwt_required()
-def resume_latest():
-    user_id = get_jwt_identity()
-    if not user_id:
-        return jsonify({"error": "Authentication required."}), 401
-
-    row = _latest_resume_row(int(user_id))
-    if not row:
-        return jsonify({"error": "No resume found."}), 404
-
-    parsed_json = row["parsed_json"]
-    if parsed_json:
-        try:
-            parsed = json.loads(parsed_json)
-            # Prefer full content section if present
-            sections = parsed.get("sections") or []
-            content = ""
-            for section in sections:
-                if section.get("name") == "full_content":
-                    content = section.get("content") or ""
-                    break
-            if not content:
-                content = parsed.get("raw_text") or ""
-            return jsonify(
-                {
-                    "resume_id": row["id"],
-                    "content": content,
-                    "file_path": row["file_path"],
-                    "created_at": row["created_at"],
-                }
-            ), 200
-        except Exception:
-            pass
-
-    # Fallback: parse from file if stored JSON is missing or invalid
-    filepath = row["file_path"]
-    if not filepath or not os.path.isfile(filepath):
-        return jsonify({"error": "Resume file not found."}), 404
-
-    parsed = AIHelper().parseResume(filepath)
-    if "error" in parsed:
-        return jsonify({"error": parsed["error"]}), 500
-
-    return jsonify(
-        {
-            "resume_id": row["id"],
-            "content": parsed.get("sections", [{}])[0].get("content", ""),
-            "file_path": filepath,
-            "created_at": row["created_at"],
-        }
-    ), 200
-
-
-@bp.put("/resume/update")
-@jwt_required()
-def resume_update():
-    user_id = get_jwt_identity()
-    if not user_id:
-        return jsonify({"error": "Authentication required."}), 401
-
-    data = request.get_json(force=True) or {}
-    content = (data.get("content") or "").strip()
-    if not content:
-        return jsonify({"error": "Resume content is required."}), 400
-
-    row = _latest_resume_row(int(user_id))
-    if not row:
-        return jsonify({"error": "No resume found. Upload one first."}), 404
-
-    upload_dir = current_app.config["UPLOAD_FOLDER"]
-    new_filepath = _save_text_as_docx(content, upload_dir)
-
-    parsed = AIHelper().parseResume(new_filepath)
-    if "error" in parsed:
-        os.remove(new_filepath)
-        return jsonify({"error": parsed["error"]}), 500
-
-    db_conn = db.get_db()
-    try:
-        db_conn.execute(
-            """
-            UPDATE resumes
-            SET file_path = ?, parsed_json = ?
-            WHERE id = ? AND user_id = ?
-            """,
-            (new_filepath, json.dumps(parsed), row["id"], int(user_id)),
-        )
-        db_conn.commit()
-
-        try:
-            resume_text = ""
-            sections = parsed.get("sections") or []
-            for section in sections:
-                if section.get("name") == "full_content":
-                    resume_text = section.get("content") or ""
-                    break
-            if not resume_text:
-                resume_text = parsed.get("raw_text") or ""
-
-            score_payload = AIHelper().scoreResume(resume_text)
-            score_val = int(score_payload.get("score", 0))
-            summary = score_payload.get("summary") or "Resume scored."
-            details = {
-                "strengths": score_payload.get("strengths") or [],
-                "weaknesses": score_payload.get("weaknesses") or [],
-                "suggestions": score_payload.get("suggestions") or [],
-            }
-            db_conn.execute(
-                """
-                INSERT INTO feedback_reports (resume_id, score, summary, details_json)
-                VALUES (?, ?, ?, ?)
-                """,
-                (row["id"], score_val, summary, json.dumps(details)),
-            )
-            db_conn.commit()
-        except Exception as e:
-            current_app.logger.error(f"Failed to save resume score: {e}")
-    except Exception as e:
-        current_app.logger.error(f"Failed to update resume record: {e}")
-        os.remove(new_filepath)
-        return jsonify({"error": "Database error during resume update."}), 500
-
-    return jsonify(
-        {
-            "message": "Resume updated successfully",
-            "resume_db_id": row["id"],
-            "file_path": new_filepath,
-        }
-    ), 200
 # ---------------- View / Delete (optional) ----------------
+@bp.get("/resume/view")
+def resume_view():
+    upload_dir = current_app.config["UPLOAD_FOLDER"]
+    if not os.path.isdir(upload_dir):
+        abort(404)
+    files = [f for f in os.listdir(upload_dir) if f.lower().endswith((".pdf", ".docx"))]
+    if not files:
+        abort(404)  # <-- THIS IS THE CORRECTED LINE
+    latest = max(files, key=lambda f: os.path.getmtime(os.path.join(upload_dir, f)))
+    return send_file(os.path.join(upload_dir, latest))
+
+
 @bp.delete("/resume")
-@jwt_required()
 def resume_delete():
-    user_id = get_jwt_identity()
-    if not user_id:
-        return jsonify({"error": "Authentication required."}), 401
-
-    row = _latest_resume_row(int(user_id))
-    if not row:
+    upload_dir = current_app.config["UPLOAD_FOLDER"]
+    if not os.path.isdir(upload_dir):
         return jsonify({"message": "Nothing to delete"}), 200
-
-    filepath = row["file_path"]
-    if filepath and os.path.isfile(filepath):
-        os.remove(filepath)
-
-    db_conn = db.get_db()
-    db_conn.execute(
-        "DELETE FROM resumes WHERE id = ? AND user_id = ?",
-        (row["id"], int(user_id)),
-    )
-    db_conn.commit()
-
-    return jsonify({"message": "Deleted latest resume"}), 200
+    files = [f for f in os.listdir(upload_dir) if f.lower().endswith((".pdf", ".docx"))]
+    if not files:
+        return jsonify({"message": "Nothing to delete"}), 200
+    latest = max(files, key=lambda f: os.path.getmtime(os.path.join(upload_dir, f)))
+    os.remove(os.path.join(upload_dir, latest))
+    return jsonify({"message": f"Deleted {latest}"}), 200
