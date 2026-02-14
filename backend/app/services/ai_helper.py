@@ -2,7 +2,6 @@ import os
 import fitz  # PyMuPDF
 import docx  # python-docx
 import json
-import re
 import google.generativeai as genai
 from flask import current_app
 from dotenv import load_dotenv
@@ -86,19 +85,6 @@ class AIHelper:
             current_app.logger.error(f"Error reading PDF {filepath}: {e}")
             return None
 
-    def _extract_json(self, text: str):
-        if not text:
-            return None
-        # Try to extract the first JSON object in the response.
-        start = text.find("{")
-        end = text.rfind("}")
-        if start == -1 or end == -1 or end <= start:
-            return None
-        try:
-            return json.loads(text[start:end + 1])
-        except Exception:
-            return None
-
     def parseResume(self, filepath: str) -> dict:
         """
         CV dosyasından metin okur.
@@ -120,81 +106,6 @@ class AIHelper:
             "raw_text": raw_text[:500] + "..." if len(raw_text) > 500 else raw_text,
             "sections": [{"name": "full_content", "content": raw_text}],
             "extracted_data": {"name": "Candidate", "email": "N/A", "skills": [], "experience_count": 0}
-        }
-
-    def scoreResume(self, resume_text: str) -> dict:
-        """
-        Score resume on a 0-100 scale. Returns dict with score + feedback.
-        """
-        resume_text = (resume_text or "").strip()
-        if not resume_text:
-            return {
-                "score": 0,
-                "summary": "No resume content provided.",
-                "strengths": [],
-                "weaknesses": ["Missing resume content."],
-                "suggestions": ["Add resume content to receive a score."],
-            }
-
-        if self.model:
-            try:
-                prompt = f"""
-You are an expert resume reviewer. Score the resume from 0 to 100.
-Evaluate clarity, structure, impact, relevance, concision, and grammar.
-Return ONLY valid JSON with these exact keys:
-score (integer 0-100), summary (string), strengths (array of 3 short strings),
-weaknesses (array of 3 short strings), suggestions (array of 3 short strings).
-
-Resume text:
-\"\"\"{resume_text[:8000]}\"\"\"
-"""
-                response = self.model.generate_content(prompt)
-                content = response.text
-                parsed = self._extract_json(content)
-                if parsed and "score" in parsed:
-                    # Normalize types
-                    parsed["score"] = int(float(parsed.get("score", 0)))
-                    parsed["strengths"] = parsed.get("strengths") or []
-                    parsed["weaknesses"] = parsed.get("weaknesses") or []
-                    parsed["suggestions"] = parsed.get("suggestions") or []
-                    return parsed
-            except Exception as e:
-                print(f"❌ Resume scoring failed, falling back to heuristics: {e}")
-
-        # Heuristic fallback
-        words = len(resume_text.split())
-        has_contact = bool(re.search(r"@|phone|linkedin", resume_text.lower()))
-        has_metrics = bool(re.search(r"\b\d+%|\b\d+\s*(users|customers|months|years)\b", resume_text.lower()))
-        has_sections = any(k in resume_text.lower() for k in ["experience", "education", "skills", "projects"])
-
-        score = 60
-        if words >= 200: score += 10
-        if words >= 400: score += 5
-        if has_contact: score += 5
-        if has_sections: score += 10
-        if has_metrics: score += 10
-        score = min(100, score)
-
-        strengths = []
-        weaknesses = []
-        suggestions = []
-        if has_sections: strengths.append("Resume includes clear sections.")
-        else: weaknesses.append("Missing clear section headings.")
-        if has_metrics: strengths.append("Includes quantifiable impact.")
-        else: suggestions.append("Add metrics to highlight impact (e.g., % improvements).")
-        if words < 200: weaknesses.append("Resume content is too brief.")
-        if not has_contact: suggestions.append("Add contact details (email/LinkedIn).")
-
-        if not strengths: strengths.append("Relevant resume content present.")
-        if not weaknesses: weaknesses.append("No major structural issues detected.")
-        if not suggestions: suggestions.append("Consider tightening wording for clarity.")
-
-        return {
-            "score": score,
-            "summary": "Heuristic score generated (AI unavailable).",
-            "strengths": strengths[:3],
-            "weaknesses": weaknesses[:3],
-            "suggestions": suggestions[:3],
         }
 
     def generateInterviewFeedback(self, question: str, answer: str, role: str = "", company: str = "") -> dict:
@@ -269,28 +180,12 @@ Resume text:
         """
         if not answer or not answer.strip():
             return 0.0
-
-        if self.model:
-            try:
-                prompt = f"""
-You are an expert interviewer. Score the candidate's answer from 0 to 100.
-Evaluate structure (STAR), specificity, impact, clarity, and relevance.
-Return ONLY JSON with keys: score (number), summary (string),
-strengths (array), suggestions (array).
-
-Question: "{question}"
-Answer: "{answer}"
-"""
-                response = self.model.generate_content(prompt)
-                parsed = self._extract_json(response.text)
-                if parsed and "score" in parsed:
-                    return float(parsed.get("score", 0))
-            except Exception as e:
-                print(f"❌ Interview scoring failed, falling back to heuristics: {e}")
-
+        
         words = len(answer.split())
-        score = 60.0
+        score = 60.0 
+        
         if 50 <= words <= 300: score += 20
         if "result" in answer.lower(): score += 10
         if "action" in answer.lower(): score += 10
+        
         return min(100.0, score)

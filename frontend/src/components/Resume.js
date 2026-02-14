@@ -1,43 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import './Resume.css';
 
 const Resume = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploadedResume, setUploadedResume] = useState(null);
   const [uploading, setUploading] = useState(false);
-  const [resumeText, setResumeText] = useState('');
-  const [loadingResume, setLoadingResume] = useState(false);
-  const [savingResume, setSavingResume] = useState(false);
-
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        setLoadingResume(true);
-        const token = localStorage.getItem('token');
-        if (!token) return;
-        const res = await fetch('/api/resume/latest', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) return;
-        const data = await res.json();
-        if (alive) {
-          setResumeText(data.content || '');
-          if (data.file_path) {
-            const name = data.file_path.split('/').pop();
-            setUploadedResume({
-              name,
-              size: '—',
-              uploadDate: data.created_at ? new Date(data.created_at).toLocaleDateString() : '—',
-            });
-          }
-        }
-      } finally {
-        if (alive) setLoadingResume(false);
-      }
-    })();
-    return () => { alive = false; };
-  }, []);
 
   const handleFileSelect = (event) => {
     const file = event.target.files[0];
@@ -95,43 +62,6 @@ const Resume = () => {
     }
   };
 
-  const handleSaveEdits = async () => {
-    if (!resumeText.trim()) {
-      alert('Please enter resume content before saving.');
-      return;
-    }
-    setSavingResume(true);
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) throw new Error('You are not logged in. Please log in first.');
-
-      const res = await fetch('/api/resume/update', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ content: resumeText }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-
-      if (data.file_path) {
-        const name = data.file_path.split('/').pop();
-        setUploadedResume((prev) => ({
-          name,
-          size: prev?.size ?? '—',
-          uploadDate: new Date().toLocaleDateString(),
-        }));
-      }
-      alert('Resume updated successfully.');
-    } catch (e) {
-      alert(`Save failed: ${e.message}`);
-    } finally {
-      setSavingResume(false);
-    }
-  };
-
   return (
     <div className="resume-container">
       <h2>Resume Management</h2>
@@ -182,51 +112,23 @@ const Resume = () => {
               <div className="info-row"><span className="label">Uploaded:</span><span>{uploadedResume.uploadDate}</span></div>
             </div>
             <div className="resume-actions">
+              <button className="view-button" onClick={() => window.open('/api/resume/view', '_blank')}>
+                {/* ... view button svg ... */}
+                View Resume
+              </button>
               <button className="delete-button" onClick={async () => {
                 try {
-                  const token = localStorage.getItem('token');
-                  if (!token) throw new Error('You are not logged in. Please log in first.');
-                  const r = await fetch('/api/resume', {
-                    method: 'DELETE',
-                    headers: { Authorization: `Bearer ${token}` },
-                  });
+                  const r = await fetch('/api/resume', { method: 'DELETE' });
                   if (!r.ok) throw new Error(`HTTP ${r.status}`);
                   setUploadedResume(null);
-                  setResumeText('');
                 } catch (e) { alert(`Delete failed: ${e.message}`); }
               }}>
                 {/* ... delete button svg ... */}
                 Delete
-              </button>
+              </button>Get
             </div>
           </div>
         )}
-      </div>
-
-      <div className="resume-grid" style={{ marginTop: '2rem' }}>
-        <div className="upload-section">
-          <h3>Edit Resume</h3>
-          {loadingResume ? (
-            <p>Loading resume...</p>
-          ) : (
-            <>
-              <textarea
-                className="resume-editor"
-                rows={12}
-                value={resumeText}
-                onChange={(e) => setResumeText(e.target.value)}
-                placeholder="Paste or edit your resume text here..."
-              />
-              <button
-                className="upload-button"
-                onClick={handleSaveEdits}
-                disabled={savingResume}
-              >
-                {savingResume ? 'Saving...' : 'Save Edited Resume'}
-              </button>
-            </>
-          )}
-        </div>
       </div>
     </div>
   );
