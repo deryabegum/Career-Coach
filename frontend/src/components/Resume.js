@@ -1,31 +1,62 @@
 import React, { useState } from 'react';
 import './Resume.css';
 
+const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+const MAX_FILE_SIZE_MB = 10;
+
 const Resume = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploadedResume, setUploadedResume] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [fileError, setFileError] = useState('');
+  const [uploadError, setUploadError] = useState('');
+
+  const allowedMimeTypes = [
+    'application/pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  ];
+  const allowedExtensions = ['pdf', 'docx'];
 
   const handleFileSelect = (event) => {
     const file = event.target.files[0];
-    const allowedMimeTypes = [
-      'application/pdf',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document' // DOCX MIME type
-    ];
-    
-    if (file && allowedMimeTypes.includes(file.type)) {
-      setSelectedFile(file);
-    } else {
-      alert('Please select a PDF or DOCX file.'); 
+    setFileError('');
+    setUploadError('');
+    event.target.value = '';
+
+    if (!file) return;
+
+    // Unsupported format: check extension and MIME type
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    if (!allowedExtensions.includes(ext) || !allowedMimeTypes.includes(file.type)) {
+      setFileError('Please select a PDF or DOCX file.');
+      setSelectedFile(null);
+      return;
     }
+
+    // Empty file
+    if (file.size === 0) {
+      setFileError('File is empty. Please select a non-empty file.');
+      setSelectedFile(null);
+      return;
+    }
+
+    // Oversized file
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      setFileError(`File too large. Maximum size is ${MAX_FILE_SIZE_MB} MB.`);
+      setSelectedFile(null);
+      return;
+    }
+
+    setSelectedFile(file);
   };
 
   const handleUpload = async () => {
     if (!selectedFile) {
-      alert('Please select a file first');
+      setUploadError('Please select a file first.');
       return;
     }
     setUploading(true);
+    setUploadError('');
     try {
       // --- 1. GET THE TOKEN ---
       const token = localStorage.getItem('token');
@@ -43,20 +74,30 @@ const Resume = () => {
       const res = await fetch('/api/resume/upload', {
         method: 'POST',
         body: form,
-        headers: headers // <-- This is the new line
+        headers
       });
-      // --- END OF CHANGES ---
 
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        const text = await res.text();
+        let errMessage = `Upload failed (${res.status})`;
+        try {
+          const errData = JSON.parse(text);
+          errMessage = errData.error || errMessage;
+        } catch {
+          if (text && text.length < 200) errMessage = text;
+        }
+        throw new Error(errMessage);
+      }
       const data = await res.json();
       setUploadedResume({
-        name: data.name ?? selectedFile.name,
-        size: data.size ?? ((selectedFile.size / 1024).toFixed(2) + ' KB'),
-        uploadDate: data.uploadDate ?? new Date().toLocaleDateString()
+        name: data.filename ?? selectedFile.name,
+        size: data.size ? `${(data.size / 1024).toFixed(2)} KB` : `${(selectedFile.size / 1024).toFixed(2)} KB`,
+        uploadDate: new Date().toLocaleDateString()
       });
       setSelectedFile(null);
+      setUploadError('');
     } catch (e) {
-      alert(`Upload failed: ${e.message}`);
+      setUploadError(e.message || 'Upload failed.');
     } finally {
       setUploading(false);
     }
@@ -88,10 +129,12 @@ const Resume = () => {
                   <path d="M10 9H8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </div>
-              <p>Click to select PDF or DOCX file</p>
-              {selectedFile && <p className="selected-file">Selected: {selectedFile.name}</p>}
+              <p>Click to select PDF or DOCX file (max {MAX_FILE_SIZE_MB} MB)</p>
+              {selectedFile && <p className="selected-file">Selected: {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)</p>}
             </label>
           </div>
+          {fileError && <p className="resume-error" role="alert">{fileError}</p>}
+          {uploadError && <p className="resume-error" role="alert">{uploadError}</p>}
 
           <button
             className="upload-button"
@@ -123,9 +166,8 @@ const Resume = () => {
                   setUploadedResume(null);
                 } catch (e) { alert(`Delete failed: ${e.message}`); }
               }}>
-                {/* ... delete button svg ... */}
                 Delete
-              </button>Get
+              </button>
             </div>
           </div>
         )}

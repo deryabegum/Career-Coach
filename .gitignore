@@ -16,4 +16,5 @@ env/
 # Flask runtime
 instance/
 uploads/
-EOF
+EOFbackend/.env
+backend/.env

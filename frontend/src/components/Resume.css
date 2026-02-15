@@ -164,6 +164,16 @@
   backdrop-filter: blur(10px);
 }
 
+.resume-error {
+  color: #ff6b6b;
+  font-size: 0.95rem;
+  margin: 1rem 0 0;
+  padding: 0.75rem 1rem;
+  background: rgba(255, 107, 107, 0.15);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 107, 107, 0.3);
+}
+
 /* Upload Button */
 .upload-button {
   background: #FF8C00;

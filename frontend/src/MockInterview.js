@@ -1,7 +1,9 @@
+// test
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Timer, ChevronLeft, ChevronRight, Play, Pause, RefreshCw, Send, Sparkles, CheckCircle2, XCircle, BookOpenText, ListChecks } from "lucide-react";
+import { Timer, ChevronLeft, ChevronRight, Play, Pause, RefreshCw, Send, Sparkles, CheckCircle2, XCircle, BookOpenText, ListChecks, Download, Mic, MicOff } from "lucide-react";
 import { api } from "./api";
 import "./MockInterview.css";
+import jsPDF from "jspdf";
 
 /**
  * MockInterview.js (page-level component)
@@ -84,14 +86,94 @@ export default function MockInterviewPage() {
   const [reviewMode, setReviewMode] = useLocalStorage("mi_review", false);
   const [sessionId, setSessionId] = useLocalStorage("mi_sessionId", null);
   const [loading, setLoading] = useState(false);
+  const [micPermissionStatus, setMicPermissionStatus] = useState(null); // null, 'granted', 'denied', 'prompt'
+  const [micError, setMicError] = useState(null);
 
   const timerRef = useRef(null);
   const current = questions[index];
   const progressValue = Math.round(((index + 1) / questions.length) * 100);
 
-  const startInterview = useCallback(async () => {
+  const MIC_DENIED_MESSAGE = "Please allow microphone access to start interview";
+
+  // Check microphone permission status (no getUserMedia on mount - prompt only when user clicks Start)
+  const checkMicrophonePermission = useCallback(async () => {
+    try {
+      if (navigator.permissions && navigator.permissions.query) {
+        const result = await navigator.permissions.query({ name: 'microphone' });
+        setMicPermissionStatus(result.state);
+        if (result.state === 'denied') {
+          setMicError(MIC_DENIED_MESSAGE);
+        } else {
+          setMicError(null);
+        }
+        result.onchange = () => {
+          setMicPermissionStatus(result.state);
+          if (result.state === 'granted') {
+            setMicError(null);
+          } else if (result.state === 'denied') {
+            setMicError(MIC_DENIED_MESSAGE);
+          }
+        };
+      } else {
+        // Permissions API not available - don't prompt on mount; defer to Start practice click
+        setMicPermissionStatus('prompt');
+        setMicError(null);
+      }
+    } catch (error) {
+      console.error('Microphone permission check failed:', error);
+      setMicPermissionStatus('denied');
+      if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+        setMicError('No microphone found. Please connect a microphone to start the interview.');
+      } else {
+        setMicError(MIC_DENIED_MESSAGE);
+      }
+    }
+  }, []);
+
+  // Request microphone permission (called when user clicks Start practice)
+  const requestMicrophonePermission = useCallback(async () => {
     try {
       setLoading(true);
+      setMicError(null);
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      setMicPermissionStatus('granted');
+      stream.getTracks().forEach(track => track.stop());
+      setMicError(null);
+      return true;
+    } catch (error) {
+      console.error('Microphone permission request failed:', error);
+      setMicPermissionStatus('denied');
+      if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+        setMicError('No microphone found. Please connect a microphone to start the interview.');
+      } else {
+        setMicError(MIC_DENIED_MESSAGE);
+      }
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Check microphone permission on component mount
+  useEffect(() => {
+    if (!started) {
+      checkMicrophonePermission();
+    }
+  }, [started, checkMicrophonePermission]);
+
+  const startInterview = useCallback(async () => {
+    // Check microphone permission first
+    if (micPermissionStatus !== 'granted') {
+      const permissionGranted = await requestMicrophonePermission();
+      if (!permissionGranted) {
+        // Don't start interview if microphone access is denied
+        return;
+      }
+    }
+
+    try {
+      setLoading(true);
+      setMicError(null);
       // Create session on backend
       const response = await api.createInterviewSession({ role, company });
       setSessionId(response.session_id);
@@ -109,7 +191,7 @@ export default function MockInterviewPage() {
     } finally {
       setLoading(false);
     }
-  }, [secondsPerQ, setIndex, setRemaining, setRunning, setStarted, role, company]);
+  }, [secondsPerQ, setIndex, setRemaining, setRunning, setStarted, role, company, micPermissionStatus, requestMicrophonePermission]);
 
   // Timer
   useEffect(() => {
@@ -240,6 +322,164 @@ export default function MockInterviewPage() {
     URL.revokeObjectURL(url);
   };
 
+  const downloadPDF = () => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 20;
+    const maxWidth = pageWidth - 2 * margin;
+    let yPosition = margin;
+
+    // Helper function to add a new page if needed
+    const checkNewPage = (requiredHeight) => {
+      if (yPosition + requiredHeight > pageHeight - margin) {
+        doc.addPage();
+        yPosition = margin;
+        return true;
+      }
+      return false;
+    };
+
+    // Helper function to add text with word wrapping
+    const addWrappedText = (text, fontSize, isBold = false, color = [0, 0, 0]) => {
+      const str = String(text ?? "");
+      doc.setFontSize(fontSize);
+      doc.setTextColor(color[0], color[1], color[2]);
+      if (isBold) {
+        doc.setFont(undefined, "bold");
+      } else {
+        doc.setFont(undefined, "normal");
+      }
+      const lines = doc.splitTextToSize(str, maxWidth);
+      lines.forEach((line) => {
+        checkNewPage(7);
+        doc.text(line, margin, yPosition);
+        yPosition += 7;
+      });
+      doc.setFont(undefined, "normal");
+    };
+
+    // Title
+    doc.setFontSize(20);
+    doc.setTextColor(59, 130, 246);
+    doc.setFont(undefined, "bold");
+    doc.text("Mock Interview Report", margin, yPosition);
+    yPosition += 15;
+
+    // Interview details
+    doc.setFontSize(12);
+    doc.setTextColor(0, 0, 0);
+    doc.setFont(undefined, "normal");
+    doc.text(`Role: ${role}`, margin, yPosition);
+    yPosition += 7;
+    doc.text(`Company: ${company}`, margin, yPosition);
+    yPosition += 7;
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, margin, yPosition);
+    yPosition += 15;
+
+    // Questions and Answers
+    questions.forEach((q, index) => {
+      checkNewPage(20);
+      
+      // Question number and prompt
+      addWrappedText(`Question ${index + 1}`, 14, true, [26, 26, 26]);
+      yPosition += 3;
+      addWrappedText(q.prompt, 11, true, [55, 65, 81]);
+      yPosition += 5;
+
+      // Tags if available
+      if (q.tags && q.tags.length > 0) {
+        doc.setFontSize(9);
+        doc.setTextColor(107, 114, 128);
+        const tagsText = `Tags: ${q.tags.join(", ")}`;
+        doc.text(tagsText, margin, yPosition);
+        yPosition += 6;
+      }
+
+      // Answer
+      const answer = answers[q.id] || "(No answer provided)";
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      doc.setFont(undefined, "bold");
+      doc.text("Your Answer:", margin, yPosition);
+      yPosition += 6;
+      doc.setFont(undefined, "normal");
+      addWrappedText(answer, 10, false, [55, 65, 81]);
+      yPosition += 5;
+
+      // Feedback if available
+      if (feedback[q.id]) {
+        yPosition += 3;
+        doc.setFontSize(10);
+        doc.setFont(undefined, "bold");
+        doc.setTextColor(59, 130, 246);
+        doc.text("AI Feedback:", margin, yPosition);
+        yPosition += 6;
+        doc.setFont(undefined, "normal");
+        doc.setTextColor(0, 0, 0);
+
+        if (feedback[q.id].summary != null && feedback[q.id].summary !== "") {
+          doc.setFont(undefined, "bold");
+          doc.text("Summary:", margin, yPosition);
+          yPosition += 6;
+          doc.setFont(undefined, "normal");
+          addWrappedText(feedback[q.id].summary, 9, false, [55, 65, 81]);
+          yPosition += 3;
+        }
+
+        const strengths = Array.isArray(feedback[q.id].strengths) ? feedback[q.id].strengths : [];
+        if (strengths.length > 0) {
+          doc.setFont(undefined, "bold");
+          doc.setTextColor(5, 150, 105);
+          doc.text("Strengths:", margin, yPosition);
+          yPosition += 6;
+          doc.setFont(undefined, "normal");
+          doc.setTextColor(0, 0, 0);
+          strengths.forEach((strength) => {
+            addWrappedText(`• ${strength}`, 9, false, [55, 65, 81]);
+            yPosition += 1;
+          });
+          yPosition += 3;
+        }
+
+        const suggestions = Array.isArray(feedback[q.id].suggestions) ? feedback[q.id].suggestions : [];
+        if (suggestions.length > 0) {
+          doc.setFont(undefined, "bold");
+          doc.setTextColor(217, 119, 6);
+          doc.text("Suggestions:", margin, yPosition);
+          yPosition += 6;
+          doc.setFont(undefined, "normal");
+          doc.setTextColor(0, 0, 0);
+          suggestions.forEach((suggestion) => {
+            addWrappedText(`• ${suggestion}`, 9, false, [55, 65, 81]);
+            yPosition += 1;
+          });
+          yPosition += 3;
+        }
+      }
+
+      // Add spacing between questions
+      yPosition += 10;
+    });
+
+    // Footer
+    const totalPages = doc.internal.pages.length - 1;
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(128, 128, 128);
+      doc.text(
+        `Page ${i} of ${totalPages}`,
+        pageWidth - margin - 20,
+        pageHeight - 10
+      );
+    }
+
+    // Save the PDF
+    const fileName = `mock-interview-report-${role.replace(/\s+/g, "-")}-${Date.now()}.pdf`;
+    doc.save(fileName);
+  };
+
   // Keyboard shortcuts
   useEffect(() => {
     const onKey = (e) => {
@@ -306,6 +546,47 @@ export default function MockInterviewPage() {
               <Play size={16} style={{ marginRight: '0.5rem' }} /> {loading ? "Starting..." : "Start practice"}
             </button>
           </div>
+          {micError && (
+            <div style={{ 
+              marginTop: '1rem', 
+              padding: '1rem', 
+              backgroundColor: '#fef2f2', 
+              border: '1px solid #fecaca', 
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              color: '#dc2626'
+            }}>
+              <MicOff size={20} style={{ flexShrink: 0 }} />
+              <div style={{ flex: 1 }}>
+                <strong style={{ display: 'block', marginBottom: '0.25rem' }}>Microphone Access Required</strong>
+                <p style={{ margin: 0, fontSize: '0.875rem' }}>{micError}</p>
+                {micPermissionStatus === 'denied' && (
+                  <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.75rem', color: '#991b1b' }}>
+                    Please check your browser settings and allow microphone access for this site.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+          {micPermissionStatus === 'granted' && !micError && (
+            <div style={{ 
+              marginTop: '1rem', 
+              padding: '0.75rem', 
+              backgroundColor: '#f0fdf4', 
+              border: '1px solid #bbf7d0', 
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              color: '#166534',
+              fontSize: '0.875rem'
+            }}>
+              <Mic size={18} style={{ flexShrink: 0 }} />
+              <span>Microphone access granted</span>
+            </div>
+          )}
         </div>
       ) : (
         <div className="grid-2-col">
@@ -450,6 +731,11 @@ export default function MockInterviewPage() {
                     </div>
                   ))}
                 </div>
+                <div className="card-footer">
+                  <button className="button primary" onClick={downloadPDF}>
+                    <Download size={16} style={{ marginRight: '0.5rem' }} />Download Report
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -470,12 +756,12 @@ function FeedbackBox({ data }) {
     <div className="feedback-box">
       <div className="feedback-section">
         <h4>Summary</h4>
-        <p style={{ fontSize: '0.875rem', lineHeight: '1.6' }}>{data.summary}</p>
+        <p style={{ fontSize: '0.875rem', lineHeight: '1.6' }}>{data.summary ?? ''}</p>
       </div>
       <div className="feedback-section">
         <h4>Strengths</h4>
         <ul>
-          {data.strengths.map((s, i) => (
+          {(Array.isArray(data.strengths) ? data.strengths : []).map((s, i) => (
             <li key={i}>{s}</li>
           ))}
         </ul>
@@ -483,7 +769,7 @@ function FeedbackBox({ data }) {
       <div className="feedback-section">
         <h4>Suggestions</h4>
         <ul>
-          {data.suggestions.map((s, i) => (
+          {(Array.isArray(data.suggestions) ? data.suggestions : []).map((s, i) => (
             <li key={i}>{s}</li>
           ))}
         </ul>

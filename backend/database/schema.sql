@@ -1,3 +1,4 @@
+DROP TABLE IF EXISTS resources;
 DROP TABLE IF EXISTS answers;
 DROP TABLE IF EXISTS interviews;
 DROP TABLE IF EXISTS interview_answers;
@@ -6,6 +7,8 @@ DROP TABLE IF EXISTS interview_sessions;
 DROP TABLE IF EXISTS keyword_analyses;
 DROP TABLE IF EXISTS feedback_reports;
 DROP TABLE IF EXISTS resumes;
+DROP TABLE IF EXISTS user_badges;
+DROP TABLE IF EXISTS user_progress;
 DROP TABLE IF EXISTS users;
 
 CREATE TABLE users (
@@ -14,6 +17,25 @@ CREATE TABLE users (
   password_hash TEXT NOT NULL,
   name TEXT NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Gamified progress tracking (simple + optional)
+CREATE TABLE user_progress (
+  user_id INTEGER PRIMARY KEY,
+  points INTEGER NOT NULL DEFAULT 0,
+  best_resume_score INTEGER NOT NULL DEFAULT 0,
+  mock_interviews_completed INTEGER NOT NULL DEFAULT 0,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users (id)
+);
+
+CREATE TABLE user_badges (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  badge_key TEXT NOT NULL,
+  earned_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (user_id, badge_key),
+  FOREIGN KEY (user_id) REFERENCES users (id)
 );
 
 CREATE TABLE resumes (
@@ -68,12 +90,30 @@ CREATE TABLE interview_answers (
   FOREIGN KEY (session_id) REFERENCES interview_sessions (id),
   FOREIGN KEY (question_id) REFERENCES interview_questions (id)
 );
+
 CREATE TABLE interviews (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   role TEXT NOT NULL,
   company TEXT NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Career resources (articles, resume guides, interview tips)
+CREATE TABLE resources (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  link  TEXT NOT NULL,
+  type  TEXT NOT NULL CHECK (type IN ('article','resume','interview'))
+);
+
+-- Sample career resources
+INSERT INTO resources (title, link, type) VALUES
+  ('How to Write a Strong Tech Resume', 'https://www.coursera.org/articles/software-engineer-resume', 'resume'),
+  ('Resume Checklist for CS Students', 'https://www.themuse.com/advice/your-resume-is-never-finished-checklist', 'resume'),
+  ('Behavioral Interview: STAR Method Guide', 'https://www.indeed.com/career-advice/interviewing/star-interview-method', 'interview'),
+  ('Common CS Interview Questions & Tips', 'https://www.interviewcake.com/article/python/coding-interview-tips', 'interview'),
+  ('Career Planning for New Grads', 'https://www.princetonreview.com/career-advice/career-planning-for-college-students', 'article'),
+  ('Networking Tips for Students', 'https://www.linkedin.com/pulse/networking-tips-college-students', 'article');
 
 CREATE TABLE answers (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

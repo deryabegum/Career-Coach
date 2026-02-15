@@ -17,8 +17,15 @@ const Login = ({ setToken, setCurrentPage }) => {
       });
 
       if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || 'Invalid email or password');
+        const text = await response.text();
+        let errMessage = 'Invalid email or password';
+        try {
+          const errData = JSON.parse(text);
+          errMessage = errData.error || errMessage;
+        } catch {
+          if (text && text.length < 200) errMessage = text;
+        }
+        throw new Error(errMessage);
       }
 
       const data = await response.json();
