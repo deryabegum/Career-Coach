@@ -17,3 +17,4 @@ env/
 instance/
 uploads/
 EOFbackend/.env
+backend/.env
