@@ -111,4 +111,8 @@ def create_app():
     from .features.resources.api import bp as resources_bp
     app.register_blueprint(resources_bp)
 
+    # Progress routes (/api/v1/progress/me)
+    from .features.progress.api import bp as progress_bp
+    app.register_blueprint(progress_bp)
+
     return app
