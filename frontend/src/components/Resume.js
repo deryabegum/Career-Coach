@@ -78,12 +78,12 @@ const Resume = () => {
       });
 
       if (!res.ok) {
+        const text = await res.text();
         let errMessage = `Upload failed (${res.status})`;
         try {
-          const errData = await res.json();
+          const errData = JSON.parse(text);
           errMessage = errData.error || errMessage;
         } catch {
-          const text = await res.text();
           if (text && text.length < 200) errMessage = text;
         }
         throw new Error(errMessage);

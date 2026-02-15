@@ -21,8 +21,15 @@ const Register = ({ setCurrentPage }) => {
       });
 
       if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || 'Registration failed');
+        const text = await response.text();
+        let errMessage = 'Registration failed';
+        try {
+          const errData = JSON.parse(text);
+          errMessage = errData.error || errMessage;
+        } catch {
+          if (text && text.length < 200) errMessage = text;
+        }
+        throw new Error(errMessage);
       }
 
       setSuccess('Registration successful! Please log in.');
