@@ -99,6 +99,19 @@ def upload_resume():
     if not _allowed_file(file):
         return jsonify({"error": "Invalid file type. Only PDF or DOCX files are allowed."}), 415
 
+    # Reject empty files (0 bytes)
+    file.seek(0, 2)  # seek to end
+    size = file.tell()
+    file.seek(0)
+    if size == 0:
+        return jsonify({"error": "File is empty. Please select a non-empty PDF or DOCX file."}), 400
+
+    max_size = current_app.config.get("MAX_CONTENT_LENGTH", 10 * 1024 * 1024)
+    if size > max_size:
+        return jsonify({
+            "error": f"File too large. Maximum size is {max_size // (1024 * 1024)} MB."
+        }), 413
+
     original_name = secure_filename(file.filename)
     rid = str(uuid4())
     saved_name = f"{rid}_{original_name}"
