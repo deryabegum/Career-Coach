@@ -61,11 +61,6 @@ def login():
         }
     ), 200
 
-@bp.post("/logout")
-def logout():
-    # Stateless JWT: client just deletes tokens
-    return jsonify({"ok": True}), 200
-
 
 @bp.post("/refresh")
 @jwt_required(refresh=True)
