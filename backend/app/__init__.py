@@ -1,7 +1,7 @@
 from datetime import timedelta
-
 from flask import Flask, jsonify
 from flask_cors import CORS
+from werkzeug.exceptions import RequestEntityTooLarge
 import os
 
 from .extensions import bcrypt, jwt
@@ -111,6 +111,11 @@ def create_app():
     from .features.resources.api import bp as resources_bp
     app.register_blueprint(resources_bp)
 
+    # Return JSON for 413 (file too large) instead of HTML
+    @app.errorhandler(RequestEntityTooLarge)
+    def handle_request_entity_too_large(e):
+        max_mb = app.config.get("MAX_CONTENT_LENGTH", 10 * 1024 * 1024) // (1024 * 1024)
+        return jsonify({"error": f"File too large. Maximum size is {max_mb} MB."}), 413
     # Progress routes (/api/v1/progress/me)
     from .features.progress.api import bp as progress_bp
     app.register_blueprint(progress_bp)
