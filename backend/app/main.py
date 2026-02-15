@@ -9,63 +9,8 @@ from werkzeug.utils import secure_filename
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from . import db
 from .services.ai_helper import AIHelper
-from .extensions import bcrypt
 
 bp = Blueprint("main", __name__)
-
-# -------------------- Auth --------------------
-# (These routes are no longer used by your new frontend, 
-# but we'll leave them to avoid breaking anything)
-@bp.post("/register")
-def register():
-    data = request.get_json(silent=True) or {}
-    email = data.get("email")
-    password = data.get("password")
-    name = data.get("name")
-
-    if not all([email, password, name]):
-        return jsonify({"error": "Missing required fields"}), 400
-
-    db_conn = db.get_db()
-    cursor = db_conn.cursor()
-    try:
-        hashed_password = bcrypt.generate_password_hash(password).decode("utf-8")
-        cursor.execute(
-            "INSERT INTO users (email, password_hash, name) VALUES (?, ?, ?)",
-            (email, hashed_password, name),
-        )
-        db_conn.commit()
-        return jsonify({"message": "User registered successfully"}), 201
-    except sqlite3.IntegrityError:
-        return jsonify({"error": "Email already exists"}), 409
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        db.close_db()
-
-
-@bp.post("/login")
-def login():
-    data = request.get_json(silent=True) or {}
-    email = data.get("email")
-    password = data.get("password")
-
-    if not email or not password:
-        return jsonify({"error": "Missing email or password"}), 400
-
-    db_conn = db.get_db()
-    cursor = db_conn.cursor()
-    try:
-        cursor.execute("SELECT id, password_hash FROM users WHERE email = ?", (email,))
-        user = cursor.fetchone()
-        if user and bcrypt.check_password_hash(user["password_hash"], password):
-            session["user_id"] = user["id"]
-            return jsonify({"message": "Login successful"}), 200
-        return jsonify({"error": "Invalid email or password"}), 401
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        db.close_db()
 
 # ----------------- Resume Upload -----------------
 def _allowed_file(upload) -> bool:
