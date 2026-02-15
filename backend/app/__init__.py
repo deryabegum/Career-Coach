@@ -116,5 +116,8 @@ def create_app():
     def handle_request_entity_too_large(e):
         max_mb = app.config.get("MAX_CONTENT_LENGTH", 10 * 1024 * 1024) // (1024 * 1024)
         return jsonify({"error": f"File too large. Maximum size is {max_mb} MB."}), 413
+    # Progress routes (/api/v1/progress/me)
+    from .features.progress.api import bp as progress_bp
+    app.register_blueprint(progress_bp)
 
     return app
