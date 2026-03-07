@@ -22,6 +22,14 @@ def init_db():
     with current_app.open_resource('../database/schema.sql') as f:
         db.executescript(f.read().decode('utf8'))
 
+def ensure_db_initialized():
+    db = get_db()
+    users_table = db.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'users'"
+    ).fetchone()
+    if users_table is None:
+        init_db()
+
 @click.command('init-db')
 def init_db_command():
     """Clear the existing data and create new tables."""

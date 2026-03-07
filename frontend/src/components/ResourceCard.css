@@ -1,49 +1,68 @@
 .resource-card {
-  background-color: #111827;
+  position: relative;
+  background-color: #e7e7e7;
   border-radius: 12px;
-  padding: 1rem 1.25rem;
-  margin-bottom: 1rem;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+  border: 1px solid #bfc5cb;
+  padding: 0.95rem 1rem 1.15rem;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.45rem;
+  min-height: 110px;
 }
 
-.resource-card-header {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.resource-pill {
-  font-size: 0.7rem;
-  padding: 0.2rem 0.6rem;
-  border-radius: 999px;
+.resource-card-type {
+  margin: 0;
+  color: #5f6772;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #f9fafb;
-}
-
-.resource-pill-article {
-  background-color: #2563eb;
-}
-
-.resource-pill-resume {
-  background-color: #059669;
-}
-
-.resource-pill-interview {
-  background-color: #f59e0b;
 }
 
 .resource-card-title {
   margin: 0;
-  color: #f9fafb;
-  font-size: 1rem;
+  color: #1f2937;
+  font-size: 2.05rem;
+  line-height: 1.2;
+  font-weight: 600;
+  max-width: calc(100% - 44px);
 }
 
 .resource-card-link {
-  font-size: 0.85rem;
-  color: #38bdf8;
-  text-decoration: underline;
+  font-size: 0.8rem;
+  color: #1f4f8d;
+  text-decoration: none;
   align-self: flex-start;
+  margin-top: 0.15rem;
+}
+
+.resource-card-link:hover {
+  text-decoration: underline;
+}
+
+.resource-card-badge {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: #15acc8;
+  color: #0f2a34;
+  font-size: 0.7rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 680px) {
+  .resource-card {
+    min-height: 100px;
+  }
+
+  .resource-card-title {
+    font-size: 1.8rem;
+    max-width: calc(100% - 40px);
+  }
 }
