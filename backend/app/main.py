@@ -94,25 +94,33 @@ def upload_resume():
     }), 200
 # ---------------- View / Delete (optional) ----------------
 @bp.get("/resume/view")
+@jwt_required()
 def resume_view():
-    upload_dir = current_app.config["UPLOAD_FOLDER"]
-    if not os.path.isdir(upload_dir):
+    user_id = get_jwt_identity()
+    db_conn = db.get_db()
+    row = db_conn.execute(
+        "SELECT file_path FROM resumes WHERE user_id = ? ORDER BY created_at DESC LIMIT 1",
+        (user_id,),
+    ).fetchone()
+    if not row or not os.path.isfile(row["file_path"]):
         abort(404)
-    files = [f for f in os.listdir(upload_dir) if f.lower().endswith((".pdf", ".docx"))]
-    if not files:
-        abort(404)  # <-- THIS IS THE CORRECTED LINE
-    latest = max(files, key=lambda f: os.path.getmtime(os.path.join(upload_dir, f)))
-    return send_file(os.path.join(upload_dir, latest))
+    return send_file(row["file_path"])
 
 
 @bp.delete("/resume")
+@jwt_required()
 def resume_delete():
-    upload_dir = current_app.config["UPLOAD_FOLDER"]
-    if not os.path.isdir(upload_dir):
+    user_id = get_jwt_identity()
+    db_conn = db.get_db()
+    row = db_conn.execute(
+        "SELECT id, file_path FROM resumes WHERE user_id = ? ORDER BY created_at DESC LIMIT 1",
+        (user_id,),
+    ).fetchone()
+    if not row:
         return jsonify({"message": "Nothing to delete"}), 200
-    files = [f for f in os.listdir(upload_dir) if f.lower().endswith((".pdf", ".docx"))]
-    if not files:
-        return jsonify({"message": "Nothing to delete"}), 200
-    latest = max(files, key=lambda f: os.path.getmtime(os.path.join(upload_dir, f)))
-    os.remove(os.path.join(upload_dir, latest))
-    return jsonify({"message": f"Deleted {latest}"}), 200
+    # Remove the file from disk if it still exists
+    if os.path.isfile(row["file_path"]):
+        os.remove(row["file_path"])
+    db_conn.execute("DELETE FROM resumes WHERE id = ?", (row["id"],))
+    db_conn.commit()
+    return jsonify({"message": "Resume deleted"}), 200
