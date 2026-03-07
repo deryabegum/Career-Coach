@@ -9,6 +9,7 @@ from werkzeug.utils import secure_filename
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from . import db
 from .services.ai_helper import AIHelper
+from .features.progress.service import award_resume_score
 
 bp = Blueprint("main", __name__)
 
@@ -81,6 +82,7 @@ def upload_resume():
     db_conn = db.get_db()
     cursor = db_conn.cursor()
     try:
+        resume_evaluation = ai_helper.scoreResume(parsed_resume_data)
         cursor.execute(
             """
             INSERT INTO resumes (user_id, file_path, parsed_json)
@@ -88,7 +90,21 @@ def upload_resume():
             """,
             (user_id, filepath, json.dumps(parsed_resume_data)), # 4. This user_id is now correct
         )
+        resume_db_id = cursor.lastrowid
+        cursor.execute(
+            """
+            INSERT INTO feedback_reports (resume_id, score, summary, details_json)
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                resume_db_id,
+                int(resume_evaluation["score"]),
+                resume_evaluation["summary"],
+                json.dumps(resume_evaluation["details"]),
+            ),
+        )
         db_conn.commit()
+        award_resume_score(int(user_id), int(resume_evaluation["score"]))
     except Exception as e:
         # If DB save fails, log the error and remove the saved file
         current_app.logger.error(f"Failed to save resume record to DB: {e}")
@@ -100,10 +116,12 @@ def upload_resume():
     # 4. Return success response
     return jsonify({
         "message": "Resume uploaded and parsed successfully",
-        "resume_db_id": cursor.lastrowid, # Get the ID of the new resume record
+        "resume_db_id": resume_db_id,
         "filename": original_name,
         "size": os.path.getsize(filepath),
-        "parsed_data": parsed_resume_data
+        "parsed_data": parsed_resume_data,
+        "resume_score": int(resume_evaluation["score"]),
+        "resume_summary": resume_evaluation["summary"],
     }), 200
 # ---------------- View / Delete (optional) ----------------
 @bp.get("/resume/view")

@@ -189,3 +189,78 @@ class AIHelper:
         if "action" in answer.lower(): score += 10
         
         return min(100.0, score)
+
+    def scoreResume(self, parsed_resume: dict) -> dict:
+        """
+        Evaluate a resume and return a simple score payload for dashboard/report use.
+        """
+        sections = parsed_resume.get("sections") or []
+        full_text = ""
+        for section in sections:
+            if section.get("name") == "full_content":
+                full_text = section.get("content") or ""
+                break
+
+        text = full_text.strip()
+        if not text:
+            return {
+                "score": 0,
+                "summary": "Resume could not be evaluated because no text was extracted.",
+                "details": {
+                    "checks": {
+                        "has_email": False,
+                        "has_phone": False,
+                        "has_skills_section": False,
+                        "has_experience_section": False,
+                        "has_education_section": False,
+                        "has_project_section": False,
+                        "length_ok": False,
+                    }
+                },
+            }
+
+        lowered = text.lower()
+        word_count = len(text.split())
+        checks = {
+            "has_email": "@" in text,
+            "has_phone": any(ch.isdigit() for ch in text) and sum(ch.isdigit() for ch in text) >= 10,
+            "has_skills_section": "skill" in lowered,
+            "has_experience_section": "experience" in lowered,
+            "has_education_section": "education" in lowered,
+            "has_project_section": "project" in lowered or "projects" in lowered,
+            "length_ok": 200 <= word_count <= 900,
+        }
+
+        score = 30
+        score += 10 if checks["has_email"] else 0
+        score += 10 if checks["has_phone"] else 0
+        score += 15 if checks["has_skills_section"] else 0
+        score += 15 if checks["has_experience_section"] else 0
+        score += 10 if checks["has_education_section"] else 0
+        score += 10 if checks["has_project_section"] else 0
+        score += 10 if checks["length_ok"] else 0
+        score = min(100, score)
+
+        missing = []
+        if not checks["has_skills_section"]:
+            missing.append("Add a dedicated skills section.")
+        if not checks["has_experience_section"]:
+            missing.append("Include an experience section with concrete impact.")
+        if not checks["has_project_section"]:
+            missing.append("Include at least one project with measurable outcomes.")
+        if not checks["length_ok"]:
+            missing.append("Keep the resume content within a focused one-page to two-page range.")
+
+        summary = "Resume evaluation completed."
+        if missing:
+            summary = "Resume evaluation completed with improvement opportunities."
+
+        return {
+            "score": score,
+            "summary": summary,
+            "details": {
+                "word_count": word_count,
+                "checks": checks,
+                "suggestions": missing,
+            },
+        }

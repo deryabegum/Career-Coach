@@ -22,18 +22,16 @@ class DashboardDAO:
         try:
             row = self.conn.execute(
                 """
-                SELECT ka.match_score
-                FROM keyword_analyses ka
-                JOIN resumes r ON r.id = ka.resume_id
+                SELECT fr.score
+                FROM feedback_reports fr
+                JOIN resumes r ON r.id = fr.resume_id
                 WHERE r.user_id = ?
-                ORDER BY ka.created_at DESC
+                ORDER BY fr.created_at DESC
                 LIMIT 1
                 """,
                 (user_id,),
             ).fetchone()
-            if row and row["match_score"] is not None:
-                return int(round(float(row["match_score"]) * 100))
-            return 0
+            return int(row["score"]) if row and row["score"] is not None else 0
         except (sqlite3.Error, KeyError, ValueError, TypeError):
             return 0
 
