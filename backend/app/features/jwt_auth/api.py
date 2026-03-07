@@ -1,4 +1,5 @@
 # backend/app/features/jwt_auth/api.py
+import os
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import (
     create_access_token,
@@ -11,6 +12,7 @@ from .service import (
     get_user_by_email,
     verify_pw,
 )
+from ... import db
 
 bp = Blueprint("auth", __name__, url_prefix="/api/v1/auth")
 
@@ -77,3 +79,108 @@ def refresh():
 @jwt_required()
 def me():
     return jsonify({"user_id": int(get_jwt_identity())}), 200
+
+
+@bp.delete("/account")
+@jwt_required()
+def delete_account():
+    user_id = int(get_jwt_identity())
+    conn = db.get_db()
+
+    # Delete resume files from disk
+    resumes = conn.execute(
+        "SELECT id, file_path FROM resumes WHERE user_id = ?", (user_id,)
+    ).fetchall()
+    for resume in resumes:
+        resume_id = resume["id"]
+        conn.execute("DELETE FROM feedback_reports WHERE resume_id = ?", (resume_id,))
+        conn.execute("DELETE FROM keyword_analyses WHERE resume_id = ?", (resume_id,))
+        if resume["file_path"] and os.path.exists(resume["file_path"]):
+            os.remove(resume["file_path"])
+    conn.execute("DELETE FROM resumes WHERE user_id = ?", (user_id,))
+
+    # Delete interview data
+    sessions = conn.execute(
+        "SELECT id FROM interview_sessions WHERE user_id = ?", (user_id,)
+    ).fetchall()
+    for session in sessions:
+        conn.execute("DELETE FROM interview_answers WHERE session_id = ?", (session["id"],))
+    conn.execute("DELETE FROM interview_sessions WHERE user_id = ?", (user_id,))
+
+    # Delete progress and badges
+    conn.execute("DELETE FROM user_badges WHERE user_id = ?", (user_id,))
+    conn.execute("DELETE FROM user_progress WHERE user_id = ?", (user_id,))
+
+    # Delete the user
+    conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+    conn.commit()
+
+    return jsonify({"message": "Account deleted successfully"}), 200
+
+
+@bp.get("/account/export")
+@jwt_required()
+def export_account():
+    user_id = int(get_jwt_identity())
+    conn = db.get_db()
+
+    user = conn.execute(
+        "SELECT id, email, name, created_at FROM users WHERE id = ?", (user_id,)
+    ).fetchone()
+
+    resumes = conn.execute(
+        """
+        SELECT r.id, r.file_path, r.created_at, fr.score, fr.summary
+        FROM resumes r
+        LEFT JOIN feedback_reports fr ON fr.resume_id = r.id
+        WHERE r.user_id = ?
+        ORDER BY r.created_at DESC
+        """,
+        (user_id,),
+    ).fetchall()
+
+    sessions = conn.execute(
+        "SELECT id, started_at FROM interview_sessions WHERE user_id = ?", (user_id,)
+    ).fetchall()
+    interview_data = []
+    for session in sessions:
+        answers = conn.execute(
+            "SELECT answer_text, score FROM interview_answers WHERE session_id = ?",
+            (session["id"],),
+        ).fetchall()
+        interview_data.append({
+            "session_id": session["id"],
+            "started_at": session["started_at"],
+            "answers": [{"answer": a["answer_text"], "score": a["score"]} for a in answers],
+        })
+
+    progress = conn.execute(
+        "SELECT points, best_resume_score, mock_interviews_completed FROM user_progress WHERE user_id = ?",
+        (user_id,),
+    ).fetchone()
+
+    badges = conn.execute(
+        "SELECT badge_key, earned_at FROM user_badges WHERE user_id = ?", (user_id,)
+    ).fetchall()
+
+    return jsonify({
+        "account": {
+            "id": user["id"],
+            "email": user["email"],
+            "name": user["name"],
+            "created_at": user["created_at"],
+        },
+        "resumes": [
+            {
+                "id": r["id"],
+                "filename": r["file_path"],
+                "uploaded_at": r["created_at"],
+                "score": r["score"],
+                "summary": r["summary"],
+            }
+            for r in resumes
+        ],
+        "interviews": interview_data,
+        "progress": dict(progress) if progress else {},
+        "badges": [{"badge": b["badge_key"], "earned_at": b["earned_at"]} for b in badges],
+    }), 200
