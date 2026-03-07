@@ -176,6 +176,7 @@ def upload_resume():
     }), 200
 
 
+
 @bp.get("/resume")
 @jwt_required()
 def list_resumes():
