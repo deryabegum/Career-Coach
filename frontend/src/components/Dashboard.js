@@ -73,11 +73,13 @@ const Dashboard = ({ setCurrentPage }) => {
         if (alive) {
           setUserStats({
             name: data.name ?? 'User',
-            resumeScore: data.lastResumeScore ?? 85,
+            resumeScore: data.lastResumeScore ?? 0,
             interviewsCompleted: data.totals?.interviews ?? 0, 
             jobMatches: data.totals?.matches ?? 0, 
-            applicationsSent: 0,
-            progressPct: 65,
+            resumeUploads: data.totals?.resumes ?? 0,
+            points: data.points ?? 0,
+            level: data.level ?? 1,
+            progressPct: data.progressPct ?? 0,
           });
           setLoading(false);
         }
@@ -110,6 +112,7 @@ const Dashboard = ({ setCurrentPage }) => {
       <div className="welcome-section">
         <h1>Welcome back, {userStats.name}!</h1>
         <p>Your career journey progress: {userStats.progressPct}%</p>
+        <p>Level {userStats.level} · {userStats.points} points earned</p>
         <div className="progress-bar">
           <div className="progress-fill" style={{ width: `${userStats.progressPct}%` }}></div>
         </div>
@@ -161,14 +164,17 @@ const Dashboard = ({ setCurrentPage }) => {
         </div>
 
         {/* Applications Card */}
-        <div className="stat-card">
+        <div 
+          className="stat-card clickable"
+          onClick={() => setCurrentPage('resume')}
+        >
           <div className="stat-icon">
             {/* ... icon unchanged ... */}
           </div>
           <div className="stat-content">
-            <h3>Applications</h3>
-            <p className="stat-number">{userStats.applicationsSent}</p>
-            <p className="stat-label">Sent this week</p>
+            <h3>Resume Uploads</h3>
+            <p className="stat-number">{userStats.resumeUploads}</p>
+            <p className="stat-label">Uploaded to your account</p>
           </div>
         </div>
       </div>
