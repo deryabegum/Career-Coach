@@ -55,10 +55,11 @@ const Resume = () => {
       setUploadError('Please select a file first.');
       return;
     }
+
     setUploading(true);
     setUploadError('');
+
     try {
-      // --- 1. GET THE TOKEN ---
       const token = localStorage.getItem('token');
       if (!token) {
         throw new Error('You are not logged in. Please log in first.');
@@ -70,7 +71,6 @@ const Resume = () => {
       const headers = new Headers();
       headers.append('Authorization', `Bearer ${token}`);
 
-      // --- 3. ADD HEADERS TO THE FETCH REQUEST ---
       const res = await fetch('/api/resume/upload', {
         method: 'POST',
         body: form,
@@ -88,18 +88,38 @@ const Resume = () => {
         }
         throw new Error(errMessage);
       }
+
       const data = await res.json();
-      setUploadedResume({
+
+      const resumeInfo = {
         name: data.filename ?? selectedFile.name,
-        size: data.size ? `${(data.size / 1024).toFixed(2)} KB` : `${(selectedFile.size / 1024).toFixed(2)} KB`,
+        size: data.size
+          ? `${(data.size / 1024).toFixed(2)} KB`
+          : `${(selectedFile.size / 1024).toFixed(2)} KB`,
         uploadDate: new Date().toLocaleDateString()
-      });
+      };
+
+      setUploadedResume(resumeInfo);
+      localStorage.setItem('uploadedResume', JSON.stringify(resumeInfo));
+
       setSelectedFile(null);
       setUploadError('');
     } catch (e) {
       setUploadError(e.message || 'Upload failed.');
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    try {
+      const r = await fetch('/api/resume', { method: 'DELETE' });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+
+      setUploadedResume(null);
+      localStorage.removeItem('uploadedResume');
+    } catch (e) {
+      alert(`Delete failed: ${e.message}`);
     }
   };
 
@@ -120,7 +140,6 @@ const Resume = () => {
             />
             <label htmlFor="file-input" className="file-label">
               <div className="upload-icon">
-                {/* icon unchanged */}
                 <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M14 2H6C4.9 2 4 2.9 4 4V20C4 21.1 4.89 22 5.99 22H18C19.1 22 20 21.1 20 20V8L14 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   <path d="M14 2V8H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -130,9 +149,14 @@ const Resume = () => {
                 </svg>
               </div>
               <p>Click to select PDF or DOCX file (max {MAX_FILE_SIZE_MB} MB)</p>
-              {selectedFile && <p className="selected-file">Selected: {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)</p>}
+              {selectedFile && (
+                <p className="selected-file">
+                  Selected: {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
+                </p>
+              )}
             </label>
           </div>
+
           {fileError && <p className="resume-error" role="alert">{fileError}</p>}
           {uploadError && <p className="resume-error" role="alert">{uploadError}</p>}
 
@@ -150,22 +174,29 @@ const Resume = () => {
           <div className="resume-display">
             <h3>Current Resume</h3>
             <div className="resume-info">
-              <div className="info-row"><span className="label">File Name:</span><span>{uploadedResume.name}</span></div>
-              <div className="info-row"><span className="label">Size:</span><span>{uploadedResume.size}</span></div>
-              <div className="info-row"><span className="label">Uploaded:</span><span>{uploadedResume.uploadDate}</span></div>
+              <div className="info-row">
+                <span className="label">File Name:</span>
+                <span>{uploadedResume.name}</span>
+              </div>
+              <div className="info-row">
+                <span className="label">Size:</span>
+                <span>{uploadedResume.size}</span>
+              </div>
+              <div className="info-row">
+                <span className="label">Uploaded:</span>
+                <span>{uploadedResume.uploadDate}</span>
+              </div>
             </div>
+
             <div className="resume-actions">
-              <button className="view-button" onClick={() => window.open('/api/resume/view', '_blank')}>
-                {/* ... view button svg ... */}
+              <button
+                className="view-button"
+                onClick={() => window.open('/api/resume/view', '_blank')}
+              >
                 View Resume
               </button>
-              <button className="delete-button" onClick={async () => {
-                try {
-                  const r = await fetch('/api/resume', { method: 'DELETE' });
-                  if (!r.ok) throw new Error(`HTTP ${r.status}`);
-                  setUploadedResume(null);
-                } catch (e) { alert(`Delete failed: ${e.message}`); }
-              }}>
+
+              <button className="delete-button" onClick={handleDelete}>
                 Delete
               </button>
             </div>
