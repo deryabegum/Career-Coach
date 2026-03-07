@@ -49,7 +49,7 @@ def login():
     if not user or not verify_pw(password, user["password_hash"]):
         return jsonify({"error": "invalid credentials"}), 401
 
-    user_id = int(user["id"])
+    user_id = str(user["id"])
 
     access_token = create_access_token(identity=user_id)
     refresh_token = create_refresh_token(identity=user_id)
