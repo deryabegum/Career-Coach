@@ -88,8 +88,10 @@ def create_app():
     from .main import bp as main_bp
     app.register_blueprint(main_bp, url_prefix="/api")
 
-    from .db import init_app as init_db
+    from .db import init_app as init_db, ensure_db_initialized
     init_db(app)
+    with app.app_context():
+        ensure_db_initialized()
 
     # Dashboard summary routes (/api/v1/dashboard/summary)
     from .features.dashboard_summary.api import bp as dashboard_summary_bp
