@@ -36,7 +36,7 @@ def match_keywords():
 
         cursor.execute(
             """
-            SELECT parsed_json 
+            SELECT id, parsed_json 
             FROM resumes 
             WHERE user_id = ? 
             ORDER BY created_at DESC 
@@ -100,6 +100,20 @@ def match_keywords():
 
         matched_keywords = sorted(list(resume_keywords.intersection(jd_keywords)))
         missing_keywords = sorted(list(jd_keywords.difference(resume_keywords)))
+
+        cursor.execute(
+            """
+            INSERT INTO keyword_analyses (resume_id, job_text, match_score, missing_keywords_json)
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                int(resume_row["id"]),
+                job_description,
+                float(score),
+                json.dumps(missing_keywords),
+            ),
+        )
+        db_conn.commit()
 
         # 7. Return the results
         return jsonify(
