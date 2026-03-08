@@ -115,24 +115,32 @@
   border-color: rgba(255, 255, 255, 0.2);
 }
 
-.stat-card:nth-child(1) {
-  background: #2C2C2C;
-  border-color: rgba(255, 140, 0, 0.2);
+.stat-card--orange {
+  border-color: rgba(255, 140, 0, 0.3);
+}
+.stat-card--orange:hover {
+  box-shadow: 0 20px 40px rgba(255, 140, 0, 0.2);
 }
 
-.stat-card:nth-child(2) {
-  background: #2C2C2C;
-  border-color: rgba(255, 140, 0, 0.2);
+.stat-card--blue {
+  border-color: rgba(74, 158, 255, 0.3);
+}
+.stat-card--blue:hover {
+  box-shadow: 0 20px 40px rgba(74, 158, 255, 0.2);
 }
 
-.stat-card:nth-child(3) {
-  background: #2C2C2C;
-  border-color: rgba(255, 140, 0, 0.2);
+.stat-card--green {
+  border-color: rgba(74, 222, 128, 0.3);
+}
+.stat-card--green:hover {
+  box-shadow: 0 20px 40px rgba(74, 222, 128, 0.2);
 }
 
-.stat-card:nth-child(4) {
-  background: #2C2C2C;
-  border-color: rgba(255, 140, 0, 0.2);
+.stat-card--purple {
+  border-color: rgba(167, 139, 250, 0.3);
+}
+.stat-card--purple:hover {
+  box-shadow: 0 20px 40px rgba(167, 139, 250, 0.2);
 }
 
 .stat-icon {
