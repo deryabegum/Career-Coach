@@ -62,6 +62,17 @@ export const api = {
       return r.json();
     });
   },
+  listResumes: () => request('/api/resume'),
+  getResume: (resumeId) => request(`/api/resume/${resumeId}`),
+  updateResume: (resumeId, data) =>
+    request(`/api/resume/${resumeId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  deleteResume: (resumeId) =>
+    request(`/api/resume/${resumeId}`, {
+      method: 'DELETE',
+    }),
 
   // Auth
   register: (data) =>

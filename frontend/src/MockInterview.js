@@ -337,6 +337,8 @@ export default function MockInterviewPage() {
     const maxWidth = pageWidth - 2 * margin;
     let yPosition = margin;
 
+    const resumeData = JSON.parse(localStorage.getItem("uploadedResume") || "null");
+
     // Helper function to add a new page if needed
     const checkNewPage = (requiredHeight) => {
       if (yPosition + requiredHeight > pageHeight - margin) {
@@ -370,7 +372,7 @@ export default function MockInterviewPage() {
     doc.setFontSize(20);
     doc.setTextColor(59, 130, 246);
     doc.setFont(undefined, "bold");
-    doc.text("Mock Interview Report", margin, yPosition);
+    doc.text("Career Coach Report", margin, yPosition);
     yPosition += 15;
 
     // Interview details
@@ -382,7 +384,35 @@ export default function MockInterviewPage() {
     doc.text(`Company: ${company}`, margin, yPosition);
     yPosition += 7;
     doc.text(`Date: ${new Date().toLocaleDateString()}`, margin, yPosition);
-    yPosition += 15;
+    yPosition += 12;
+
+    // Resume section
+    doc.setFontSize(14);
+    doc.setTextColor(26, 26, 26);
+    doc.setFont(undefined, "bold");
+    doc.text("Resume Information", margin, yPosition);
+    yPosition += 8;
+
+    doc.setFont(undefined, "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(55, 65, 81);
+
+    if (resumeData) {
+      addWrappedText(`File Name: ${resumeData.name || "N/A"}`, 10, false, [55, 65, 81]);
+      addWrappedText(`Size: ${resumeData.size || "N/A"}`, 10, false, [55, 65, 81]);
+      addWrappedText(`Uploaded: ${resumeData.uploadDate || "N/A"}`, 10, false, [55, 65, 81]);
+    } else {
+      addWrappedText("No resume uploaded.", 10, false, [55, 65, 81]);
+    }
+
+    yPosition += 10;
+
+    // Interview results section title
+    doc.setFontSize(14);
+    doc.setTextColor(26, 26, 26);
+    doc.setFont(undefined, "bold");
+    doc.text("Mock Interview Results", margin, yPosition);
+    yPosition += 10;
 
     // Questions and Answers
     questions.forEach((q, index) => {
@@ -483,7 +513,7 @@ export default function MockInterviewPage() {
     }
 
     // Save the PDF
-    const fileName = `mock-interview-report-${role.replace(/\s+/g, "-")}-${Date.now()}.pdf`;
+    const fileName = `career-coach-report-${role.replace(/\s+/g, "-")}-${Date.now()}.pdf`;
     doc.save(fileName);
   };
 

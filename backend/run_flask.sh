@@ -3,7 +3,7 @@
 
 cd "$(dirname "$0")"
 source venv/bin/activate
-export PYTHONPATH=/Users/selimmaral/Desktop/Career-Coach:$PYTHONPATH
+export PYTHONPATH="$(pwd)/..:$PYTHONPATH"
 export FLASK_APP=app
 export FLASK_ENV=development
 

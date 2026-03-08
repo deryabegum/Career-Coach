@@ -7,6 +7,8 @@ DROP TABLE IF EXISTS interview_sessions;
 DROP TABLE IF EXISTS keyword_analyses;
 DROP TABLE IF EXISTS feedback_reports;
 DROP TABLE IF EXISTS resumes;
+DROP TABLE IF EXISTS user_badges;
+DROP TABLE IF EXISTS user_progress;
 DROP TABLE IF EXISTS users;
 
 CREATE TABLE users (
@@ -15,6 +17,25 @@ CREATE TABLE users (
   password_hash TEXT NOT NULL,
   name TEXT NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Gamified progress tracking (simple + optional)
+CREATE TABLE user_progress (
+  user_id INTEGER PRIMARY KEY,
+  points INTEGER NOT NULL DEFAULT 0,
+  best_resume_score INTEGER NOT NULL DEFAULT 0,
+  mock_interviews_completed INTEGER NOT NULL DEFAULT 0,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users (id)
+);
+
+CREATE TABLE user_badges (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  badge_key TEXT NOT NULL,
+  earned_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (user_id, badge_key),
+  FOREIGN KEY (user_id) REFERENCES users (id)
 );
 
 CREATE TABLE resumes (
