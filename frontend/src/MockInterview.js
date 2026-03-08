@@ -86,6 +86,8 @@ export default function MockInterviewPage() {
   const [reviewMode, setReviewMode] = useLocalStorage("mi_review", false);
   const [sessionId, setSessionId] = useLocalStorage("mi_sessionId", null);
   const [loading, setLoading] = useState(false);
+  const [loadingPhase, setLoadingPhase] = useState(""); // '', 'starting' | 'feedback' | 'submitting'
+  const [apiError, setApiError] = useState(null);
   const [micPermissionStatus, setMicPermissionStatus] = useState(null); // null, 'granted', 'denied', 'prompt'
   const [micError, setMicError] = useState(null);
 
@@ -173,8 +175,9 @@ export default function MockInterviewPage() {
 
     try {
       setLoading(true);
+      setLoadingPhase("starting");
       setMicError(null);
-      // Create session on backend
+      setApiError(null);
       const response = await api.createInterviewSession({ role, company });
       setSessionId(response.session_id);
       setStarted(true);
@@ -183,6 +186,7 @@ export default function MockInterviewPage() {
       setRunning(true);
     } catch (error) {
       console.error("Failed to create session:", error);
+      setApiError(error.message || "Could not start session. Please check your connection and try again.");
       // Still allow starting locally even if backend fails
       setStarted(true);
       setIndex(0);
@@ -190,6 +194,7 @@ export default function MockInterviewPage() {
       setRunning(true);
     } finally {
       setLoading(false);
+      setLoadingPhase("");
     }
   }, [secondsPerQ, setIndex, setRemaining, setRunning, setStarted, role, company, micPermissionStatus, requestMicrophonePermission]);
 
@@ -248,14 +253,14 @@ export default function MockInterviewPage() {
 
   const onSubmitInterview = async () => {
     if (!sessionId) {
-      // If no session, just show review mode
       setReviewMode(true);
       return;
     }
-    
+
+    setApiError(null);
     try {
       setLoading(true);
-      // Build answers with question prompts
+      setLoadingPhase("submitting");
       const answersWithPrompts = {};
       questions.forEach(q => {
         if (answers[q.id]) {
@@ -272,26 +277,27 @@ export default function MockInterviewPage() {
         company
       });
       setReviewMode(true);
-      // Store final feedback if provided
       if (result.feedback) {
         setFeedback((prev) => ({ ...prev, ...result.feedback }));
       }
-      console.log("Interview submitted:", result);
     } catch (error) {
       console.error("Failed to submit interview:", error);
-      // Still show review mode even if submission fails
+      setApiError(error.message || "Could not submit interview. Your answers were not evaluated. Please check your connection and try again.");
       setReviewMode(true);
     } finally {
       setLoading(false);
+      setLoadingPhase("");
     }
   };
 
   const requestFeedback = async () => {
     const a = (answers[current.id] || "").trim();
     if (!a) return;
-    
+
+    setApiError(null);
     try {
       setLoading(true);
+      setLoadingPhase("feedback");
       const data = await api.getInterviewFeedback({
         session_id: sessionId,
         question_prompt: current.prompt,
@@ -302,11 +308,12 @@ export default function MockInterviewPage() {
       setFeedback((prev) => ({ ...prev, [current.id]: data }));
     } catch (error) {
       console.error("Failed to get feedback:", error);
-      // Fallback to heuristic feedback if backend fails
+      setApiError(error.message || "Could not load AI feedback. Showing local feedback instead.");
       const fake = generateHeuristicFeedback(current.prompt, a);
       setFeedback((prev) => ({ ...prev, [current.id]: fake }));
     } finally {
       setLoading(false);
+      setLoadingPhase("");
     }
   };
 
@@ -498,8 +505,55 @@ export default function MockInterviewPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  const loadingLabel = loadingPhase === "starting"
+    ? "Starting session..."
+    : loadingPhase === "submitting"
+      ? "Submitting & generating evaluation..."
+      : loadingPhase === "feedback"
+        ? "Getting feedback..."
+        : "Loading...";
+
   return (
     <div className="mock-interview-container">
+      {apiError && (
+        <div
+          className="mock-interview-api-error"
+          role="alert"
+          style={{
+            marginBottom: "1rem",
+            padding: "1rem 1.25rem",
+            background: "#fef2f2",
+            border: "1px solid #fecaca",
+            borderRadius: "8px",
+            color: "#b91c1c",
+            display: "flex",
+            alignItems: "flex-start",
+            gap: "0.75rem",
+          }}
+        >
+          <XCircle size={20} style={{ flexShrink: 0, marginTop: "2px" }} />
+          <div style={{ flex: 1 }}>
+            <strong style={{ display: "block", marginBottom: "0.25rem" }}>Something went wrong</strong>
+            <p style={{ margin: 0, fontSize: "0.875rem" }}>{apiError}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setApiError(null)}
+            aria-label="Dismiss error"
+            style={{
+              background: "none",
+              border: "none",
+              color: "#b91c1c",
+              cursor: "pointer",
+              padding: "0.25rem 0.5rem",
+              fontSize: "0.875rem",
+              fontWeight: 600,
+            }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
       <header className="mock-interview-header">
         <div>
           <h1>Mock Interview</h1>
@@ -543,7 +597,7 @@ export default function MockInterviewPage() {
               <BookOpenText size={16}/> {questions.length} questions in this set
             </div>
             <button className="button primary lg" onClick={startInterview} disabled={loading}>
-              <Play size={16} style={{ marginRight: '0.5rem' }} /> {loading ? "Starting..." : "Start practice"}
+              <Play size={16} style={{ marginRight: '0.5rem' }} /> {loading ? loadingLabel : "Start practice"}
             </button>
           </div>
           {micError && (
@@ -641,7 +695,7 @@ export default function MockInterviewPage() {
               </div>
               <div className="card-footer" style={{ flexWrap: 'wrap', gap: '0.5rem' }}>
                 <button className="button secondary" onClick={requestFeedback} disabled={loading}>
-                  <Sparkles size={16} style={{ marginRight: '0.5rem' }} />{loading ? "Loading..." : "Get feedback"}
+                  <Sparkles size={16} style={{ marginRight: '0.5rem' }} />{loading ? loadingLabel : "Get feedback"}
                 </button>
                 <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.5rem' }}>
                   <button className="button outline" onClick={prev} disabled={index === 0}>
@@ -707,11 +761,18 @@ export default function MockInterviewPage() {
                     </span>
                   )}
                 </div>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button className="button outline" onClick={exportJSON}>Export</button>
-                  <button className="button primary" onClick={onSubmitInterview} disabled={loading}>
-                    <Send size={16} style={{ marginRight: '0.5rem' }} />{loading ? "Submitting..." : "Submit"}
-                  </button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {loadingPhase === "submitting" && (
+                    <p style={{ margin: 0, fontSize: "0.8125rem", color: "#6b7280" }}>
+                      Analyzing your answers and generating AI feedback. This may take a moment…
+                    </p>
+                  )}
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button className="button outline" onClick={exportJSON}>Export</button>
+                    <button className="button primary" onClick={onSubmitInterview} disabled={loading}>
+                      <Send size={16} style={{ marginRight: '0.5rem' }} />{loading ? loadingLabel : "Submit for evaluation"}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
