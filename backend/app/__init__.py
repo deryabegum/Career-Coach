@@ -10,12 +10,20 @@ from .extensions import bcrypt, jwt
 def create_app():
     app = Flask(__name__)
 
+    # Fail loudly if a real secret has not been set in production
+    _jwt_secret = os.environ.get("JWT_SECRET_KEY") or os.environ.get("SECRET_KEY")
+    if not _jwt_secret:
+        import warnings
+        warnings.warn(
+            "JWT_SECRET_KEY is not set — using insecure default. "
+            "Set JWT_SECRET_KEY in your environment before deploying.",
+            stacklevel=2,
+        )
+        _jwt_secret = "dev-change-me"
+
     app.config.update(
-        SECRET_KEY=os.environ.get("SECRET_KEY", "dev"),
-        JWT_SECRET_KEY=os.environ.get(
-            "JWT_SECRET_KEY",
-            os.environ.get("SECRET_KEY", "dev"),
-        ),
+        SECRET_KEY=os.environ.get("SECRET_KEY", "dev-change-me"),
+        JWT_SECRET_KEY=_jwt_secret,
         MAX_CONTENT_LENGTH=10 * 1024 * 1024,  # 10MB
         UPLOAD_FOLDER=os.path.join(
             os.path.dirname(__file__),
@@ -88,8 +96,10 @@ def create_app():
     from .main import bp as main_bp
     app.register_blueprint(main_bp, url_prefix="/api")
 
-    from .db import init_app as init_db
+    from .db import init_app as init_db, ensure_db_initialized
     init_db(app)
+    with app.app_context():
+        ensure_db_initialized()
 
     # Dashboard summary routes (/api/v1/dashboard/summary)
     from .features.dashboard_summary.api import bp as dashboard_summary_bp
