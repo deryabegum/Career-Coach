@@ -73,6 +73,11 @@ export const api = {
     request(`/api/resume/${resumeId}`, {
       method: 'DELETE',
     }),
+  updateResumeFields: (resumeId, extractedData) =>
+    request(`/api/resume/${resumeId}/fields`, {
+      method: 'PATCH',
+      body: JSON.stringify({ extracted_data: extractedData }),
+    }),
 
   // Auth
   register: (data) =>

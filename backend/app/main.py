@@ -65,6 +65,7 @@ def _serialize_resume_row(row) -> dict:
         "resumeScore": int(row["score"]) if row["score"] is not None else 0,
         "resumeSummary": row["summary"] or "",
         "fileUrl": f"/api/resume/{int(row['id'])}/view",
+        "extractedData": parsed_json.get("extracted_data") or {},
     }
 
 # ----------------- Resume Upload -----------------
@@ -123,11 +124,19 @@ def upload_resume():
     # 2. Parse the resume content
     ai_helper = AIHelper()
     parsed_resume_data = ai_helper.parseResume(filepath)
-    
+
     # Check if parsing failed before continuing
     if "error" in parsed_resume_data:
         os.remove(filepath)
         return jsonify({"error": f"Parsing failed: {parsed_resume_data['error']}"}), 500
+
+    # 2b. Extract structured fields using LLM
+    full_text = ""
+    for section in (parsed_resume_data.get("sections") or []):
+        if section.get("name") == "full_content":
+            full_text = section.get("content") or ""
+            break
+    parsed_resume_data["extracted_data"] = ai_helper.extractResumeFields(full_text)
 
     # 3. Store the record in the database
     db_conn = db.get_db()
@@ -290,6 +299,37 @@ def update_resume(resume_id: int):
         (resume_id, user_id),
     ).fetchone()
     return jsonify(_serialize_resume_row(refreshed)), 200
+
+
+@bp.patch("/resume/<int:resume_id>/fields")
+@jwt_required()
+def update_resume_fields(resume_id: int):
+    user_id = _current_user_id()
+    payload = request.get_json(force=True) or {}
+    new_fields = payload.get("extracted_data")
+    if not isinstance(new_fields, dict):
+        return jsonify({"error": "extracted_data object is required"}), 400
+
+    conn = db.get_db()
+    row = conn.execute(
+        "SELECT parsed_json FROM resumes WHERE id = ? AND user_id = ?",
+        (resume_id, user_id),
+    ).fetchone()
+    if row is None:
+        return jsonify({"error": "Resume not found"}), 404
+
+    try:
+        parsed_json = json.loads(row["parsed_json"] or "{}")
+    except json.JSONDecodeError:
+        parsed_json = {}
+
+    parsed_json["extracted_data"] = new_fields
+    conn.execute(
+        "UPDATE resumes SET parsed_json = ? WHERE id = ? AND user_id = ?",
+        (json.dumps(parsed_json), resume_id, user_id),
+    )
+    conn.commit()
+    return jsonify({"message": "Fields updated successfully", "extracted_data": new_fields}), 200
 
 
 @bp.get("/resume/<int:resume_id>/view")

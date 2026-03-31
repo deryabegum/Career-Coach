@@ -90,7 +90,7 @@ class AIHelper:
         CV dosyasından metin okur.
         """
         ext = os.path.splitext(filepath)[1].lower()
-        
+
         if ext == '.pdf':
             raw_text = self._read_pdf(filepath)
         elif ext == '.docx':
@@ -105,7 +105,104 @@ class AIHelper:
             "summary": "Text extracted successfully.",
             "raw_text": raw_text[:500] + "..." if len(raw_text) > 500 else raw_text,
             "sections": [{"name": "full_content", "content": raw_text}],
-            "extracted_data": {"name": "Candidate", "email": "N/A", "skills": [], "experience_count": 0}
+            "extracted_data": {"name": None, "email": None, "phone": None, "summary": None, "skills": [], "work_experience": [], "education": []}
+        }
+
+    def extractResumeFields(self, text: str) -> dict:
+        """
+        Uses Gemini to extract structured fields from resume text.
+        Falls back to regex-based extraction if LLM is unavailable.
+        """
+        default_fields = {
+            "name": None,
+            "email": None,
+            "phone": None,
+            "summary": None,
+            "skills": [],
+            "work_experience": [],
+            "education": [],
+        }
+
+        if not text or not text.strip():
+            return default_fields
+
+        if self.model:
+            try:
+                prompt = f"""Extract the following fields from this resume text as JSON.
+Return ONLY valid JSON with these exact keys, no extra text, no markdown code blocks:
+{{
+  "name": "string or null",
+  "email": "string or null",
+  "phone": "string or null",
+  "summary": "string or null",
+  "skills": ["skill1", "skill2"],
+  "work_experience": [
+    {{"company": "string", "role": "string", "start_date": "string or null", "end_date": "string or null", "description": "string or null"}}
+  ],
+  "education": [
+    {{"institution": "string", "degree": "string or null", "field": "string or null", "year": "string or null"}}
+  ]
+}}
+
+Resume text:
+{text[:4000]}"""
+                response = self.model.generate_content(prompt)
+                content = self._clean_json_text(response.text)
+                parsed = json.loads(content)
+                return self._normalize_extracted_fields(parsed)
+            except Exception as e:
+                print(f"⚠️ Field extraction failed, falling back to regex: {e}")
+
+        return self._regex_extract_fields(text)
+
+    def _normalize_extracted_fields(self, data: dict) -> dict:
+        """Ensure extracted fields have the correct types."""
+        def clean_str(val):
+            s = str(val).strip() if val else None
+            return s if s and s.lower() not in ("null", "none", "n/a", "") else None
+
+        return {
+            "name": clean_str(data.get("name")),
+            "email": clean_str(data.get("email")),
+            "phone": clean_str(data.get("phone")),
+            "summary": clean_str(data.get("summary")),
+            "skills": [str(s).strip() for s in (data.get("skills") or []) if str(s).strip()],
+            "work_experience": [
+                {
+                    "company": str(exp.get("company", "")).strip(),
+                    "role": str(exp.get("role", "")).strip(),
+                    "start_date": clean_str(exp.get("start_date")),
+                    "end_date": clean_str(exp.get("end_date")),
+                    "description": clean_str(exp.get("description")),
+                }
+                for exp in (data.get("work_experience") or [])
+                if isinstance(exp, dict)
+            ],
+            "education": [
+                {
+                    "institution": str(edu.get("institution", "")).strip(),
+                    "degree": clean_str(edu.get("degree")),
+                    "field": clean_str(edu.get("field")),
+                    "year": clean_str(edu.get("year")),
+                }
+                for edu in (data.get("education") or [])
+                if isinstance(edu, dict)
+            ],
+        }
+
+    def _regex_extract_fields(self, text: str) -> dict:
+        """Basic regex extraction as fallback when LLM is unavailable."""
+        import re
+        email_match = re.search(r'[\w.+-]+@[\w-]+\.[a-zA-Z]{2,}', text)
+        phone_match = re.search(r'[\+]?[\d][\d\s\-\(\)]{8,15}[\d]', text)
+        return {
+            "name": None,
+            "email": email_match.group(0) if email_match else None,
+            "phone": phone_match.group(0).strip() if phone_match else None,
+            "summary": None,
+            "skills": [],
+            "work_experience": [],
+            "education": [],
         }
 
     def generateInterviewQuestions(self, role: str = "", company: str = "", count: int = 5) -> list[dict]:
