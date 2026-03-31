@@ -4,6 +4,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from backend.app.common.wire import get_db_conn
 from backend.app.features.mock_interview.service import (
     MockInterviewDAO,
+    build_question_set,
     create_session,
     submit_answers,
 )
@@ -30,17 +31,20 @@ def create_interview_session():
         data = request.get_json() or {}
         role = data.get("role", "Software / Data / Intern")
         company = data.get("company", "Company")
+        question_count = int(data.get("question_count", 5) or 5)
 
         user_id = _current_user_id()
         conn = get_db_conn()
 
         try:
             session_id = create_session(conn, user_id, role, company)
+            questions = build_question_set(role, company, question_count)
             return jsonify(
                 {
                     "session_id": session_id,
                     "role": role,
                     "company": company,
+                    "questions": questions,
                     "message": "Session created successfully",
                 }
             ), 201
