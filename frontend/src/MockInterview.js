@@ -547,7 +547,7 @@ export default function MockInterviewPage() {
             <h2 className="card-title">Set up your session</h2>
             <p className="card-description">Customize context and pacing to get the most out of your practice.</p>
           </div>
-          <div className="card-content" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+          <div className="card-content setup-grid">
             <div className="input-group">
               <label>Role / Track</label>
               <input className="input" value={role} onChange={(e) => setRole(e.target.value)} placeholder="Software Engineer Intern" />
@@ -569,7 +569,7 @@ export default function MockInterviewPage() {
             </div>
           </div>
           <div className="card-footer">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', color: '#666' }}>
+            <div className="meta-inline">
               <BookOpenText size={16}/> {questions.length} questions in this set
             </div>
             <button className="button primary lg" onClick={startInterview} disabled={loading}>
@@ -577,23 +577,13 @@ export default function MockInterviewPage() {
             </button>
           </div>
           {micError && (
-            <div style={{ 
-              marginTop: '1rem', 
-              padding: '1rem', 
-              backgroundColor: '#fef2f2', 
-              border: '1px solid #fecaca', 
-              borderRadius: '8px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.75rem',
-              color: '#dc2626'
-            }}>
+            <div className="status-panel error">
               <MicOff size={20} style={{ flexShrink: 0 }} />
               <div style={{ flex: 1 }}>
-                <strong style={{ display: 'block', marginBottom: '0.25rem' }}>Microphone Access Required</strong>
-                <p style={{ margin: 0, fontSize: '0.875rem' }}>{micError}</p>
+                <strong className="status-title">Microphone Access Required</strong>
+                <p className="status-copy">{micError}</p>
                 {micPermissionStatus === 'denied' && (
-                  <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.75rem', color: '#991b1b' }}>
+                  <p className="status-hint">
                     Please check your browser settings and allow microphone access for this site.
                   </p>
                 )}
@@ -601,18 +591,7 @@ export default function MockInterviewPage() {
             </div>
           )}
           {micPermissionStatus === 'granted' && !micError && (
-            <div style={{ 
-              marginTop: '1rem', 
-              padding: '0.75rem', 
-              backgroundColor: '#f0fdf4', 
-              border: '1px solid #bbf7d0', 
-              borderRadius: '8px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.75rem',
-              color: '#166534',
-              fontSize: '0.875rem'
-            }}>
+            <div className="status-panel success compact">
               <Mic size={18} style={{ flexShrink: 0 }} />
               <span>Microphone access granted</span>
             </div>
@@ -651,7 +630,7 @@ export default function MockInterviewPage() {
                   <div className="progress-bar">
                     <div className="progress-fill" style={{ width: `${progressValue}%` }}></div>
                   </div>
-                  <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#666' }}>{progressValue}% complete</div>
+                  <div className="progress-label">{progressValue}% complete</div>
                 </div>
               </div>
             </div>
@@ -659,7 +638,7 @@ export default function MockInterviewPage() {
             <div className="card">
               <div className="card-header">
                 <h3 className="card-title">Your answer</h3>
-                <p className="card-description">Autosaves locally. Press <kbd style={{ padding: '0.125rem 0.25rem', borderRadius: '4px', background: '#f3f4f6' }}>Ctrl</kbd> + <kbd style={{ padding: '0.125rem 0.25rem', borderRadius: '4px', background: '#f3f4f6' }}>Enter</kbd> to go next.</p>
+                <p className="card-description">Autosaves locally. Press <kbd className="shortcut-key">Ctrl</kbd> + <kbd className="shortcut-key">Enter</kbd> to go next.</p>
               </div>
               <div className="card-content">
                 <textarea
@@ -696,7 +675,7 @@ export default function MockInterviewPage() {
                 {feedback[current.id] ? (
                   <FeedbackBox data={feedback[current.id]} />
                 ) : (
-                  <div style={{ fontSize: '0.875rem', color: '#666' }}>No feedback yet – write an answer and click <em>Get feedback</em>.</div>
+                  <div className="empty-state-note">No feedback yet - write an answer and click <em>Get feedback</em>.</div>
                 )}
               </div>
             </div>
@@ -726,13 +705,13 @@ export default function MockInterviewPage() {
                 </div>
               </div>
               <div className="card-footer">
-                <div style={{ fontSize: '0.75rem', color: '#666' }}>
+                <div className="footer-status-text">
                   {unanswered.length === 0 ? (
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: '#059669' }}>
+                    <span className="status-inline success">
                       <CheckCircle2 size={14}/>All questions answered
                     </span>
                   ) : (
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: '#d97706' }}>
+                    <span className="status-inline warning">
                       <XCircle size={14}/>{unanswered.length} unanswered
                     </span>
                   )}
@@ -757,7 +736,7 @@ export default function MockInterviewPage() {
                     <div key={q.id} className="review-item">
                       <h4>Q{i + 1}</h4>
                       <h5>{q.prompt}</h5>
-                      <p>{answers[q.id] || <span style={{ color: '#666' }}>(no answer)</span>}</p>
+                      <p>{answers[q.id] || <span className="muted-copy">(no answer)</span>}</p>
                     </div>
                   ))}
                 </div>
@@ -804,7 +783,7 @@ function FeedbackBox({ data }) {
           ))}
         </ul>
       </div>
-      <div style={{ fontSize: '0.75rem', color: '#666', marginTop: '1rem' }}>AI feedback from backend.</div>
+      <div className="feedback-caption">AI feedback from backend.</div>
     </div>
   );
 }
