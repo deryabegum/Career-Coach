@@ -53,17 +53,38 @@ def _set_resume_text(parsed_resume: dict, new_text: str) -> dict:
 
 def _serialize_resume_row(row) -> dict:
     parsed_json = {}
+    details_json = {}
     try:
         parsed_json = json.loads(row["parsed_json"] or "{}")
     except json.JSONDecodeError:
         parsed_json = {}
+    try:
+        details_json = json.loads(row["details_json"] or "{}")
+    except json.JSONDecodeError:
+        details_json = {}
+
+    score = int(row["score"]) if row["score"] is not None else 0
+    summary = row["summary"] or ""
+    needs_refresh = (
+        not details_json or
+        not isinstance(details_json.get("suggestions"), list) or
+        "metrics" not in details_json
+    )
+
+    if parsed_json and needs_refresh:
+        refreshed = AIHelper().scoreResume(parsed_json)
+        score = int(refreshed["score"])
+        summary = refreshed["summary"]
+        details_json = refreshed["details"]
+
     return {
         "id": int(row["id"]),
         "filename": _resume_display_name(row["file_path"]),
         "uploadedAt": row["created_at"],
         "resumeText": _resume_text_from_parsed(parsed_json),
-        "resumeScore": int(row["score"]) if row["score"] is not None else 0,
-        "resumeSummary": row["summary"] or "",
+        "resumeScore": score,
+        "resumeSummary": summary,
+        "resumeDetails": details_json,
         "fileUrl": f"/api/resume/{int(row['id'])}/view",
     }
 
@@ -184,7 +205,7 @@ def list_resumes():
     conn = db.get_db()
     rows = conn.execute(
         """
-        SELECT r.id, r.file_path, r.parsed_json, r.created_at, fr.score, fr.summary
+        SELECT r.id, r.file_path, r.parsed_json, r.created_at, fr.score, fr.summary, fr.details_json
         FROM resumes r
         LEFT JOIN feedback_reports fr
           ON fr.id = (
@@ -209,7 +230,7 @@ def get_resume(resume_id: int):
     conn = db.get_db()
     row = conn.execute(
         """
-        SELECT r.id, r.file_path, r.parsed_json, r.created_at, fr.score, fr.summary
+        SELECT r.id, r.file_path, r.parsed_json, r.created_at, fr.score, fr.summary, fr.details_json
         FROM resumes r
         LEFT JOIN feedback_reports fr
           ON fr.id = (
@@ -275,7 +296,7 @@ def update_resume(resume_id: int):
 
     refreshed = conn.execute(
         """
-        SELECT r.id, r.file_path, r.parsed_json, r.created_at, fr.score, fr.summary
+        SELECT r.id, r.file_path, r.parsed_json, r.created_at, fr.score, fr.summary, fr.details_json
         FROM resumes r
         LEFT JOIN feedback_reports fr
           ON fr.id = (

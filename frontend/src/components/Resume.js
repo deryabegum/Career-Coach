@@ -286,6 +286,21 @@ const Resume = () => {
             </div>
           </div>
 
+          <div className="resume-feedback-card">
+            <h4>What&apos;s Lacking</h4>
+            {(activeResume.resumeDetails?.suggestions || []).length > 0 ? (
+              <ul className="resume-feedback-list">
+                {activeResume.resumeDetails.suggestions.map((item, index) => (
+                  <li key={`${activeResume.id}-suggestion-${index}`}>{item}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="resume-feedback-empty">
+                No major gaps detected right now. Keep refining bullets and measurable impact.
+              </p>
+            )}
+          </div>
+
           <div className="resume-editor-card">
             <label htmlFor="resume-text" className="resume-editor-label">
               Extracted Resume Text

@@ -318,6 +318,39 @@
   font-weight: 500;
 }
 
+.resume-feedback-card {
+  margin: 1.5rem 0 2rem;
+  background: rgba(255, 140, 0, 0.08);
+  border: 1px solid rgba(255, 140, 0, 0.2);
+  border-radius: 18px;
+  padding: 1.5rem;
+}
+
+.resume-feedback-card h4 {
+  margin: 0 0 1rem;
+  color: #FF8C00;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.resume-feedback-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  color: #FFFFFF;
+}
+
+.resume-feedback-list li {
+  margin: 0.55rem 0;
+  line-height: 1.6;
+  color: #EDEDED;
+}
+
+.resume-feedback-empty {
+  margin: 0;
+  color: #CCCCCC;
+  line-height: 1.6;
+}
+
 /* Resume Actions */
 .resume-actions {
   margin-top: 2rem;
