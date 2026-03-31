@@ -21,7 +21,16 @@ async function request(path, options = {}) {
 
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`HTTP ${res.status}: ${text || res.statusText}`);
+    let message = res.statusText || `Request failed (${res.status})`;
+    try {
+      const data = JSON.parse(text);
+      message = data.error || data.message || message;
+    } catch {
+      if (text && text.length < 300) message = text;
+    }
+    const err = new Error(message);
+    err.status = res.status;
+    throw err;
   }
 
   // Try JSON, fall back to text
