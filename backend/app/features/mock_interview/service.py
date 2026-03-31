@@ -74,6 +74,12 @@ def create_session(conn, user_id: int, role: str, company: str) -> int:
     return interview_id
 
 
+def build_question_set(role: str, company: str, count: int = 5) -> list[dict]:
+    """Generate a fresh question set for a session."""
+    ai_helper = AIHelper()
+    return ai_helper.generateInterviewQuestions(role, company, count)
+
+
 def get_feedback_for_answer(conn, question: str, answer: str, role: str, company: str) -> dict:
     """Get AI feedback for a single answer"""
     ai_helper = AIHelper()
@@ -109,11 +115,8 @@ def submit_answers(conn, session_id: int, user_id: int, answers: dict, role: str
         if not answer_text or not answer_text.strip():
             continue
         
-        # Generate feedback
         feedback = ai_helper.generateInterviewFeedback(question_prompt, answer_text, role, company)
-        
-        # Calculate score (0-100)
-        score = ai_helper.scoreInterviewAnswer(question_prompt, answer_text)
+        score = float(feedback.get("overall_score", 0))
         
         all_feedback[qid] = feedback
         all_scores.append(score)
@@ -133,4 +136,3 @@ def submit_answers(conn, session_id: int, user_id: int, answers: dict, role: str
         "feedback": all_feedback,
         "message": "Interview submitted successfully"
     }
-

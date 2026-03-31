@@ -53,6 +53,8 @@ const SAMPLE_QUESTIONS = [
   },
 ];
 
+const DEFAULT_QUESTION_COUNT = 5;
+
 function useLocalStorage(key, initialValue) {
   const [state, setState] = useState(() => {
     try {
@@ -76,7 +78,7 @@ export default function MockInterviewPage() {
   const [company, setCompany] = useLocalStorage("mi_company", "Company");
   const [secondsPerQ, setSecondsPerQ] = useLocalStorage("mi_secondsPerQ", DEFAULT_SECONDS);
 
-  const questions = useMemo(() => SAMPLE_QUESTIONS, []);
+  const [questions, setQuestions] = useLocalStorage("mi_questions", SAMPLE_QUESTIONS);
 
   const [index, setIndex] = useLocalStorage("mi_index", 0);
   const [answers, setAnswers] = useLocalStorage("mi_answers", {});
@@ -86,12 +88,15 @@ export default function MockInterviewPage() {
   const [reviewMode, setReviewMode] = useLocalStorage("mi_review", false);
   const [sessionId, setSessionId] = useLocalStorage("mi_sessionId", null);
   const [loading, setLoading] = useState(false);
+  const [loadingPhase, setLoadingPhase] = useState(""); // '', 'starting' | 'feedback' | 'submitting'
+  const [apiError, setApiError] = useState(null);
   const [micPermissionStatus, setMicPermissionStatus] = useState(null); // null, 'granted', 'denied', 'prompt'
   const [micError, setMicError] = useState(null);
 
   const timerRef = useRef(null);
-  const current = questions[index];
-  const progressValue = Math.round(((index + 1) / questions.length) * 100);
+  const activeQuestions = Array.isArray(questions) && questions.length ? questions : SAMPLE_QUESTIONS;
+  const current = activeQuestions[index] || activeQuestions[0];
+  const progressValue = Math.round(((index + 1) / activeQuestions.length) * 100);
 
   const MIC_DENIED_MESSAGE = "Please allow microphone access to start interview";
 
@@ -173,25 +178,30 @@ export default function MockInterviewPage() {
 
     try {
       setLoading(true);
+      setLoadingPhase("starting");
       setMicError(null);
-      // Create session on backend
+      setApiError(null);
       const response = await api.createInterviewSession({ role, company });
       setSessionId(response.session_id);
+      setQuestions(Array.isArray(response.questions) && response.questions.length ? response.questions : SAMPLE_QUESTIONS);
       setStarted(true);
       setIndex(0);
       setRemaining(secondsPerQ);
       setRunning(true);
     } catch (error) {
       console.error("Failed to create session:", error);
+      setApiError(error.message || "Could not start session. Please check your connection and try again.");
       // Still allow starting locally even if backend fails
+      setQuestions(generateLocalQuestionSet(role, company, DEFAULT_QUESTION_COUNT));
       setStarted(true);
       setIndex(0);
       setRemaining(secondsPerQ);
       setRunning(true);
     } finally {
       setLoading(false);
+      setLoadingPhase("");
     }
-  }, [secondsPerQ, setIndex, setRemaining, setRunning, setStarted, role, company, micPermissionStatus, requestMicrophonePermission]);
+  }, [secondsPerQ, setIndex, setQuestions, setRemaining, setRunning, setStarted, role, company, micPermissionStatus, requestMicrophonePermission, setSessionId]);
 
   // Timer
   useEffect(() => {
@@ -219,7 +229,7 @@ export default function MockInterviewPage() {
     setAnswers((prev) => ({ ...prev, [qid]: text }));
   };
 
-  const next = () => setIndex((i) => Math.min(i + 1, questions.length - 1));
+  const next = () => setIndex((i) => Math.min(i + 1, activeQuestions.length - 1));
   const prev = () => setIndex((i) => Math.max(i - 1, 0));
 
   const jumpTo = (i) => {
@@ -235,6 +245,7 @@ export default function MockInterviewPage() {
     setRunning(false);
     setRemaining(secondsPerQ);
     setSessionId(null);
+    setQuestions(generateLocalQuestionSet(role, company, DEFAULT_QUESTION_COUNT));
   };
 
   const answeredCount = useMemo(
@@ -242,22 +253,22 @@ export default function MockInterviewPage() {
     [answers]
   );
 
-  const unanswered = questions
+  const unanswered = activeQuestions
     .map((q, i) => ({ i, q }))
     .filter(({ q }) => !answers[q.id] || !answers[q.id].trim());
 
   const onSubmitInterview = async () => {
     if (!sessionId) {
-      // If no session, just show review mode
       setReviewMode(true);
       return;
     }
-    
+
+    setApiError(null);
     try {
       setLoading(true);
-      // Build answers with question prompts
+      setLoadingPhase("submitting");
       const answersWithPrompts = {};
-      questions.forEach(q => {
+      activeQuestions.forEach(q => {
         if (answers[q.id]) {
           answersWithPrompts[q.id] = {
             answer: answers[q.id],
@@ -272,26 +283,27 @@ export default function MockInterviewPage() {
         company
       });
       setReviewMode(true);
-      // Store final feedback if provided
       if (result.feedback) {
         setFeedback((prev) => ({ ...prev, ...result.feedback }));
       }
-      console.log("Interview submitted:", result);
     } catch (error) {
       console.error("Failed to submit interview:", error);
-      // Still show review mode even if submission fails
+      setApiError(error.message || "Could not submit interview. Your answers were not evaluated. Please check your connection and try again.");
       setReviewMode(true);
     } finally {
       setLoading(false);
+      setLoadingPhase("");
     }
   };
 
   const requestFeedback = async () => {
     const a = (answers[current.id] || "").trim();
     if (!a) return;
-    
+
+    setApiError(null);
     try {
       setLoading(true);
+      setLoadingPhase("feedback");
       const data = await api.getInterviewFeedback({
         session_id: sessionId,
         question_prompt: current.prompt,
@@ -302,11 +314,12 @@ export default function MockInterviewPage() {
       setFeedback((prev) => ({ ...prev, [current.id]: data }));
     } catch (error) {
       console.error("Failed to get feedback:", error);
-      // Fallback to heuristic feedback if backend fails
+      setApiError(error.message || "Could not load AI feedback. Showing local feedback instead.");
       const fake = generateHeuristicFeedback(current.prompt, a);
       setFeedback((prev) => ({ ...prev, [current.id]: fake }));
     } finally {
       setLoading(false);
+      setLoadingPhase("");
     }
   };
 
@@ -408,7 +421,7 @@ export default function MockInterviewPage() {
     yPosition += 10;
 
     // Questions and Answers
-    questions.forEach((q, index) => {
+    activeQuestions.forEach((q, index) => {
       checkNewPage(20);
       
       // Question number and prompt
@@ -528,15 +541,62 @@ export default function MockInterviewPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  const loadingLabel = loadingPhase === "starting"
+    ? "Starting session..."
+    : loadingPhase === "submitting"
+      ? "Submitting & generating evaluation..."
+      : loadingPhase === "feedback"
+        ? "Getting feedback..."
+        : "Loading...";
+
   return (
     <div className="mock-interview-container">
+      {apiError && (
+        <div
+          className="mock-interview-api-error"
+          role="alert"
+          style={{
+            marginBottom: "1rem",
+            padding: "1rem 1.25rem",
+            background: "#fef2f2",
+            border: "1px solid #fecaca",
+            borderRadius: "8px",
+            color: "#b91c1c",
+            display: "flex",
+            alignItems: "flex-start",
+            gap: "0.75rem",
+          }}
+        >
+          <XCircle size={20} style={{ flexShrink: 0, marginTop: "2px" }} />
+          <div style={{ flex: 1 }}>
+            <strong style={{ display: "block", marginBottom: "0.25rem" }}>Something went wrong</strong>
+            <p style={{ margin: 0, fontSize: "0.875rem" }}>{apiError}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setApiError(null)}
+            aria-label="Dismiss error"
+            style={{
+              background: "none",
+              border: "none",
+              color: "#b91c1c",
+              cursor: "pointer",
+              padding: "0.25rem 0.5rem",
+              fontSize: "0.875rem",
+              fontWeight: 600,
+            }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
       <header className="mock-interview-header">
         <div>
           <h1>Mock Interview</h1>
           <p>Practice behavioral & role-specific questions with a timed flow and instant feedback.</p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-          <span className="badge">{answeredCount}/{questions.length} answered</span>
+          <span className="badge">{answeredCount}/{activeQuestions.length} answered</span>
           <span className={`badge ${reviewMode ? 'primary' : ''}`}>{reviewMode ? "Review" : "Practice"}</span>
         </div>
       </header>
@@ -547,7 +607,7 @@ export default function MockInterviewPage() {
             <h2 className="card-title">Set up your session</h2>
             <p className="card-description">Customize context and pacing to get the most out of your practice.</p>
           </div>
-          <div className="card-content" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+          <div className="card-content setup-grid">
             <div className="input-group">
               <label>Role / Track</label>
               <input className="input" value={role} onChange={(e) => setRole(e.target.value)} placeholder="Software Engineer Intern" />
@@ -569,31 +629,21 @@ export default function MockInterviewPage() {
             </div>
           </div>
           <div className="card-footer">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', color: '#666' }}>
-              <BookOpenText size={16}/> {questions.length} questions in this set
+            <div className="meta-inline">
+              <BookOpenText size={16}/> {activeQuestions.length} questions in this set
             </div>
             <button className="button primary lg" onClick={startInterview} disabled={loading}>
-              <Play size={16} style={{ marginRight: '0.5rem' }} /> {loading ? "Starting..." : "Start practice"}
+              <Play size={16} style={{ marginRight: '0.5rem' }} /> {loading ? loadingLabel : "Start practice"}
             </button>
           </div>
           {micError && (
-            <div style={{ 
-              marginTop: '1rem', 
-              padding: '1rem', 
-              backgroundColor: '#fef2f2', 
-              border: '1px solid #fecaca', 
-              borderRadius: '8px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.75rem',
-              color: '#dc2626'
-            }}>
+            <div className="status-panel error">
               <MicOff size={20} style={{ flexShrink: 0 }} />
               <div style={{ flex: 1 }}>
-                <strong style={{ display: 'block', marginBottom: '0.25rem' }}>Microphone Access Required</strong>
-                <p style={{ margin: 0, fontSize: '0.875rem' }}>{micError}</p>
+                <strong className="status-title">Microphone Access Required</strong>
+                <p className="status-copy">{micError}</p>
                 {micPermissionStatus === 'denied' && (
-                  <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.75rem', color: '#991b1b' }}>
+                  <p className="status-hint">
                     Please check your browser settings and allow microphone access for this site.
                   </p>
                 )}
@@ -601,18 +651,7 @@ export default function MockInterviewPage() {
             </div>
           )}
           {micPermissionStatus === 'granted' && !micError && (
-            <div style={{ 
-              marginTop: '1rem', 
-              padding: '0.75rem', 
-              backgroundColor: '#f0fdf4', 
-              border: '1px solid #bbf7d0', 
-              borderRadius: '8px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.75rem',
-              color: '#166534',
-              fontSize: '0.875rem'
-            }}>
+            <div className="status-panel success compact">
               <Mic size={18} style={{ flexShrink: 0 }} />
               <span>Microphone access granted</span>
             </div>
@@ -651,7 +690,7 @@ export default function MockInterviewPage() {
                   <div className="progress-bar">
                     <div className="progress-fill" style={{ width: `${progressValue}%` }}></div>
                   </div>
-                  <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#666' }}>{progressValue}% complete</div>
+                  <div className="progress-label">{progressValue}% complete</div>
                 </div>
               </div>
             </div>
@@ -659,7 +698,7 @@ export default function MockInterviewPage() {
             <div className="card">
               <div className="card-header">
                 <h3 className="card-title">Your answer</h3>
-                <p className="card-description">Autosaves locally. Press <kbd style={{ padding: '0.125rem 0.25rem', borderRadius: '4px', background: '#f3f4f6' }}>Ctrl</kbd> + <kbd style={{ padding: '0.125rem 0.25rem', borderRadius: '4px', background: '#f3f4f6' }}>Enter</kbd> to go next.</p>
+                <p className="card-description">Autosaves locally. Press <kbd className="shortcut-key">Ctrl</kbd> + <kbd className="shortcut-key">Enter</kbd> to go next.</p>
               </div>
               <div className="card-content">
                 <textarea
@@ -671,13 +710,13 @@ export default function MockInterviewPage() {
               </div>
               <div className="card-footer" style={{ flexWrap: 'wrap', gap: '0.5rem' }}>
                 <button className="button secondary" onClick={requestFeedback} disabled={loading}>
-                  <Sparkles size={16} style={{ marginRight: '0.5rem' }} />{loading ? "Loading..." : "Get feedback"}
+                  <Sparkles size={16} style={{ marginRight: '0.5rem' }} />{loading ? loadingLabel : "Get feedback"}
                 </button>
                 <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.5rem' }}>
                   <button className="button outline" onClick={prev} disabled={index === 0}>
                     <ChevronLeft size={16} style={{ marginRight: '0.5rem' }} />Prev
                   </button>
-                  <button className="button primary" onClick={next} disabled={index === questions.length - 1}>
+                  <button className="button primary" onClick={next} disabled={index === activeQuestions.length - 1}>
                     Next<ChevronRight size={16} style={{ marginLeft: '0.5rem' }} />
                   </button>
                 </div>
@@ -696,7 +735,7 @@ export default function MockInterviewPage() {
                 {feedback[current.id] ? (
                   <FeedbackBox data={feedback[current.id]} />
                 ) : (
-                  <div style={{ fontSize: '0.875rem', color: '#666' }}>No feedback yet – write an answer and click <em>Get feedback</em>.</div>
+                  <div className="empty-state-note">No feedback yet - write an answer and click <em>Get feedback</em>.</div>
                 )}
               </div>
             </div>
@@ -710,7 +749,7 @@ export default function MockInterviewPage() {
               </div>
               <div className="card-content">
                 <div className="question-grid">
-                  {questions.map((q, i) => {
+                  {activeQuestions.map((q, i) => {
                     const done = (answers[q.id] || "").trim().length > 0;
                     return (
                       <button
@@ -726,22 +765,29 @@ export default function MockInterviewPage() {
                 </div>
               </div>
               <div className="card-footer">
-                <div style={{ fontSize: '0.75rem', color: '#666' }}>
+                <div className="footer-status-text">
                   {unanswered.length === 0 ? (
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: '#059669' }}>
+                    <span className="status-inline success">
                       <CheckCircle2 size={14}/>All questions answered
                     </span>
                   ) : (
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: '#d97706' }}>
+                    <span className="status-inline warning">
                       <XCircle size={14}/>{unanswered.length} unanswered
                     </span>
                   )}
                 </div>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button className="button outline" onClick={exportJSON}>Export</button>
-                  <button className="button primary" onClick={onSubmitInterview} disabled={loading}>
-                    <Send size={16} style={{ marginRight: '0.5rem' }} />{loading ? "Submitting..." : "Submit"}
-                  </button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {loadingPhase === "submitting" && (
+                    <p style={{ margin: 0, fontSize: "0.8125rem", color: "#6b7280" }}>
+                      Analyzing your answers and generating AI feedback. This may take a moment…
+                    </p>
+                  )}
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button className="button outline" onClick={exportJSON}>Export</button>
+                    <button className="button primary" onClick={onSubmitInterview} disabled={loading}>
+                      <Send size={16} style={{ marginRight: '0.5rem' }} />{loading ? loadingLabel : "Submit for evaluation"}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -753,15 +799,18 @@ export default function MockInterviewPage() {
                   <p className="card-description">Spot-check answers before finalizing.</p>
                 </div>
                 <div className="card-content" style={{ maxHeight: '300px', overflow: 'auto', paddingRight: '0.5rem' }}>
-                  {questions.map((q, i) => (
+                  {activeQuestions.map((q, i) => (
                     <div key={q.id} className="review-item">
                       <h4>Q{i + 1}</h4>
                       <h5>{q.prompt}</h5>
-                      <p>{answers[q.id] || <span style={{ color: '#666' }}>(no answer)</span>}</p>
+                      <p>{answers[q.id] || <span className="muted-copy">(no answer)</span>}</p>
                     </div>
                   ))}
                 </div>
                 <div className="card-footer">
+                  <button className="button secondary" onClick={resetAll}>
+                    <RefreshCw size={16} style={{ marginRight: '0.5rem' }} />Start over
+                  </button>
                   <button className="button primary" onClick={downloadPDF}>
                     <Download size={16} style={{ marginRight: '0.5rem' }} />Download Report
                   </button>
@@ -782,8 +831,41 @@ function formatTime(s) {
 }
 
 function FeedbackBox({ data }) {
+  const metrics = data.metrics || {};
+  const metricEntries = [
+    { key: "accuracy", label: "Accuracy" },
+    { key: "clearness", label: "Clearness" },
+    { key: "confidence", label: "Confidence" },
+  ];
+
   return (
     <div className="feedback-box">
+      <div className="metric-summary-card">
+        <div>
+          <div className="metric-summary-label">Overall score</div>
+          <div className="metric-summary-value">{Math.round(data.overall_score ?? 0)}/100</div>
+        </div>
+        {data.evaluator?.provider ? (
+          <span className="badge">{data.evaluator.provider}</span>
+        ) : null}
+      </div>
+
+      <div className="metrics-grid">
+        {metricEntries.map(({ key, label }) => {
+          const metric = metrics[key];
+          return (
+            <div key={key} className="metric-card">
+              <div className="metric-card-header">
+                <span>{label}</span>
+                <span className="metric-score">{metric?.score ?? "-"}/5</span>
+              </div>
+              <div className="metric-label">{metric?.label || "Not scored"}</div>
+              <p className="metric-reason">{metric?.reason || "No evaluation available yet."}</p>
+            </div>
+          );
+        })}
+      </div>
+
       <div className="feedback-section">
         <h4>Summary</h4>
         <p style={{ fontSize: '0.875rem', lineHeight: '1.6' }}>{data.summary ?? ''}</p>
@@ -804,32 +886,173 @@ function FeedbackBox({ data }) {
           ))}
         </ul>
       </div>
-      <div style={{ fontSize: '0.75rem', color: '#666', marginTop: '1rem' }}>AI feedback from backend.</div>
+      <div className="feedback-caption">Interview feedback summary.</div>
     </div>
   );
 }
 
-// Very lightweight heuristic to mock AI feedback without a backend.
+function generateLocalQuestionSet(role, company, count = DEFAULT_QUESTION_COUNT) {
+  const roleText = role || "Software / Data / Intern";
+  const companyText = company || "the company";
+  const roleLower = roleText.toLowerCase();
+
+  const behavioral = [
+    "Tell me about a time you had to adapt quickly when priorities changed.",
+    "Describe a situation where you had to balance speed and quality.",
+    "Tell me about a time you received constructive feedback and what you changed.",
+    "Describe a challenge where you had to work through ambiguity.",
+  ];
+
+  const technical = [
+    `Walk me through a project that best prepared you for this ${roleText} role.`,
+    "Describe a bug or technical issue you diagnosed. How did you find the root cause?",
+    "How do you approach debugging when the problem is not obvious at first?",
+    "Tell me about a time you improved performance, reliability, or maintainability.",
+  ];
+
+  const data = [
+    "Tell me about a time you used data to influence a decision.",
+    "How do you validate that your analysis or model is reliable?",
+    "Describe a project where you had to explain a technical insight to a non-technical audience.",
+    "How do you handle messy, missing, or conflicting data?",
+  ];
+
+  const closing = [
+    `Why are you interested in working at ${companyText}?`,
+    `What would success look like in your first 90 days at ${companyText}?`,
+    "What questions would you ask the interviewer about the team or role?",
+  ];
+
+  const pool = [
+    ...behavioral,
+    ...(roleLower.includes("data") || roleLower.includes("analyst") || roleLower.includes("ml") ? data : technical),
+    ...closing,
+  ];
+
+  const seed = `${roleText}|${companyText}|${Date.now()}`;
+  const ordered = [...pool].sort((a, b) => {
+    const av = (a.length + seed.length + a.charCodeAt(0)) % 13;
+    const bv = (b.length + seed.length + b.charCodeAt(0)) % 13;
+    return av - bv;
+  });
+
+  return ordered.slice(0, count).map((prompt, index) => ({
+    id: `q${index + 1}`,
+    prompt,
+    tags: inferQuestionTags(prompt),
+  }));
+}
+
+function inferQuestionTags(prompt) {
+  const lowered = prompt.toLowerCase();
+  const tags = [];
+  if (/time|situation|feedback|ambiguity|balance/.test(lowered)) tags.push("behavioral");
+  if (/debug|performance|technical|project|reliability/.test(lowered)) tags.push("technical");
+  if (/data|analysis|model|insight/.test(lowered)) tags.push("data");
+  if (/90 days|why are you interested|questions would you ask/.test(lowered)) tags.push("strategy");
+  if (tags.length === 0) tags.push("general");
+  return tags.slice(0, 3);
+}
+
 function generateHeuristicFeedback(question, answer) {
   const len = answer.split(/\s+/).filter(Boolean).length;
-  const hasSTAR = /situation|task|action|result/i.test(answer);
-  const mentionsImpact = /impact|result|metric|%|percent|reduced|improved|increased|decreased|saved/i.test(answer);
+  const lowerAnswer = answer.toLowerCase();
+  const lowerQuestion = question.toLowerCase();
+  const hasSTAR = /situation|task|action|result|first|then|finally/i.test(answer);
+  const mentionsImpact = /impact|result|metric|%|percent|reduced|improved|increased|decreased|saved|delivered/i.test(answer);
+  const hasExample = /for example|for instance|specifically|when i|i handled|i led|i built|i implemented/i.test(answer);
+  const hedging = /maybe|i guess|kind of|sort of|probably|i think/i.test(answer);
+
+  const questionTerms = new Set(
+    lowerQuestion
+      .split(/\s+/)
+      .map((token) => token.replace(/[^a-z]/g, ""))
+      .filter((token) => token.length > 3)
+  );
+  const overlap = lowerAnswer
+    .split(/\s+/)
+    .map((token) => token.replace(/[^a-z]/g, ""))
+    .filter((token) => questionTerms.has(token)).length;
 
   const strengths = [];
   const suggestions = [];
 
-  if (len > 120) strengths.push("Thorough explanation – strong depth.");
-  if (hasSTAR) strengths.push("Uses STAR structure effectively.");
-  if (mentionsImpact) strengths.push("Highlights measurable impact.");
-  if (len <= 120) suggestions.push("Add depth with concise details (what, how, outcome). ");
-  if (!hasSTAR) suggestions.push("Consider framing with STAR (Situation, Task, Action, Result).");
-  if (!mentionsImpact) suggestions.push("Quantify results (metrics, % change, time saved).");
+  let accuracy = 1;
+  if (overlap >= 2) accuracy += 1;
+  if (hasExample) accuracy += 1;
+  if (mentionsImpact) accuracy += 1;
+  if (len >= 45 && !hedging) accuracy += 1;
+  if (len < 20) accuracy = Math.max(1, accuracy - 1);
+  accuracy = Math.min(5, accuracy);
+
+  let clearness = 1;
+  if (len >= 35 && len <= 180) clearness += 1;
+  if (hasSTAR) clearness += 2;
+  if (hasExample) clearness += 1;
+  if (len > 240) clearness -= 1;
+  clearness = Math.max(1, Math.min(5, clearness));
+
+  let confidence = 1;
+  if (/\bi\b/.test(lowerAnswer)) confidence += 1;
+  if (/i led|i owned|i built|i implemented|i drove|i resolved|i delivered/.test(lowerAnswer)) confidence += 2;
+  if (!hedging) confidence += 1;
+  if (mentionsImpact) confidence += 1;
+  if (len < 20) confidence -= 1;
+  confidence = Math.max(1, Math.min(5, confidence));
+
+  const overallScore = Math.round((((accuracy * 0.5) + (clearness * 0.3) + (confidence * 0.2)) / 5) * 100);
+
+  if (accuracy >= 4) strengths.push("The answer stays on-topic and supports the point with relevant detail.");
+  if (clearness >= 4) strengths.push("The response is structured clearly and is easy to follow.");
+  if (confidence >= 4) strengths.push("The answer sounds direct, professional, and ownership-oriented.");
+
+  if (accuracy <= 3) suggestions.push("Answer the question more directly and add one concrete example.");
+  if (clearness <= 3) suggestions.push("Use a clearer STAR-style structure so the response flows better.");
+  if (confidence <= 3) suggestions.push("Use more direct ownership language and reduce hesitant phrasing.");
+  if (!mentionsImpact) suggestions.push("Add a measurable outcome or result to make the answer more convincing.");
+
+  const scoreLabel = (score) => {
+    if (score <= 1) return "Needs work";
+    if (score === 2) return "Developing";
+    if (score === 3) return "Solid";
+    if (score === 4) return "Strong";
+    return "Excellent";
+  };
+
+  const summary =
+    overallScore >= 80
+      ? "This answer is strong overall: it is relevant, clear, and sounds credible."
+      : overallScore >= 60
+        ? "This answer is reasonably solid, but it would benefit from sharper detail or structure."
+        : overallScore >= 40
+          ? "This answer is on the right track, but it needs more structure and stronger support."
+          : "This answer needs more development to feel complete, clear, and convincing.";
 
   return {
-    summary: `~${len} words. ${hasSTAR ? "STAR detected." : "STAR not detected."} ${
-      mentionsImpact ? "Impact signals detected." : "Add measurable results."
-    }`,
-    strengths: strengths.length ? strengths : ["Clear and direct communication."],
+    summary,
+    strengths: strengths.length ? strengths : ["The answer addresses the general topic of the question."],
     suggestions: suggestions.length ? suggestions : ["Nice work – minor tightening could improve flow."],
+    metrics: {
+      accuracy: {
+        score: accuracy,
+        label: scoreLabel(accuracy),
+        reason: "Scored from question relevance, specificity, and internal support.",
+      },
+      clearness: {
+        score: clearness,
+        label: scoreLabel(clearness),
+        reason: "Scored from structure, readability, and how easy the response is to follow.",
+      },
+      confidence: {
+        score: confidence,
+        label: scoreLabel(confidence),
+        reason: "Scored from ownership language, directness, and level of hesitation.",
+      },
+    },
+    overall_score: overallScore,
+    evaluator: {
+      provider: "local",
+      method: "rubric_fallback",
+    },
   };
 }
