@@ -96,10 +96,24 @@ def create_app():
     from .main import bp as main_bp
     app.register_blueprint(main_bp, url_prefix="/api")
 
-    from .db import init_app as init_db, ensure_db_initialized
+    from .db import init_app as init_db, ensure_db_initialized, get_db
     init_db(app)
     with app.app_context():
         ensure_db_initialized()
+        # Migration: ensure job_applications table exists for existing databases
+        _db = get_db()
+        _db.execute("""
+            CREATE TABLE IF NOT EXISTS job_applications (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                company_name TEXT    NOT NULL,
+                applied_date TEXT    NOT NULL,
+                stage        TEXT    NOT NULL DEFAULT 'applied',
+                field        TEXT    NOT NULL DEFAULT '',
+                created_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+            )
+        """)
+        _db.commit()
 
     # Dashboard summary routes (/api/v1/dashboard/summary)
     from .features.dashboard_summary.api import bp as dashboard_summary_bp
@@ -129,5 +143,9 @@ def create_app():
     # Progress routes (/api/v1/progress/me)
     from .features.progress.api import bp as progress_bp
     app.register_blueprint(progress_bp)
+
+    # Job Applications routes (/api/v1/applications/*)
+    from .features.job_applications.api import bp as applications_bp
+    app.register_blueprint(applications_bp)
 
     return app

@@ -113,6 +113,23 @@ export const api = {
 
   getUserSessions: () => request('/api/v1/mock-interview/sessions'),
 
+  // Job Applications endpoints
+  getApplications: () => request('/api/v1/applications/'),
+  createApplication: (data) =>
+    request('/api/v1/applications/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  updateApplication: (id, data) =>
+    request(`/api/v1/applications/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  deleteApplication: (id) =>
+    request(`/api/v1/applications/${id}`, {
+      method: 'DELETE',
+    }),
+
   // Career Resources endpoints
   getAllResources: () => request('/api/v1/resources'),
 
