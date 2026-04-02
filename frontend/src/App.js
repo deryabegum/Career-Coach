@@ -8,7 +8,8 @@ import './Auth.css';
 import Login from './components/Login';
 import Register from './components/Register';
 import AccountSettings from './components/AccountSettings';
-import CareerHub from './components/CareerHub';   // <-- NEW
+import CareerHub from './components/CareerHub';
+import Applications from './components/Applications';
 
 function App() {
   // Add state for the token
@@ -43,7 +44,8 @@ function App() {
     if (currentPage === 'resume') return <Resume />;
     if (currentPage === 'interview') return <MockInterview />;
     if (currentPage === 'job-match') return <JobMatch />;
-    if (currentPage === 'career-hub') return <CareerHub />;           // <-- NEW
+    if (currentPage === 'career-hub') return <CareerHub />;
+    if (currentPage === 'applications') return <Applications />;
     if (currentPage === 'account-settings') return <AccountSettings />;
 
     // Fallback if logged in but page state is weird
@@ -98,6 +100,14 @@ function App() {
                 onClick={() => setCurrentPage('career-hub')}
               >
                 Career Hub
+              </button>
+              <button
+                className={
+                  currentPage === 'applications' ? 'nav-link active' : 'nav-link'
+                }
+                onClick={() => setCurrentPage('applications')}
+              >
+                Applications
               </button>
               <button
                 className={

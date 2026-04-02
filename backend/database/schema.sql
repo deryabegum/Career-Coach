@@ -124,3 +124,13 @@ CREATE TABLE answers (
   feedback_json TEXT,
   FOREIGN KEY (interview_id) REFERENCES interviews (id)
 );
+
+CREATE TABLE IF NOT EXISTS job_applications (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  company_name TEXT    NOT NULL,
+  applied_date TEXT    NOT NULL,
+  stage        TEXT    NOT NULL DEFAULT 'applied',
+  field        TEXT    NOT NULL DEFAULT '',
+  created_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+);
