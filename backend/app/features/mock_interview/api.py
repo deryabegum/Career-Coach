@@ -7,6 +7,7 @@ from backend.app.features.mock_interview.service import (
     build_question_set,
     create_session,
     submit_answers,
+    get_session_detail,
 )
 from backend.app.services.ai_helper import AIHelper
 
@@ -37,8 +38,8 @@ def create_interview_session():
         conn = get_db_conn()
 
         try:
-            session_id = create_session(conn, user_id, role, company)
             questions = build_question_set(role, company, question_count)
+            session_id = create_session(conn, user_id, role, company, questions)
             return jsonify(
                 {
                     "session_id": session_id,
@@ -79,7 +80,6 @@ def get_feedback():
         conn = get_db_conn()
 
         try:
-            # Generate feedback using AIHelper
             ai_helper = AIHelper()
             feedback = ai_helper.generateInterviewFeedback(
                 question_prompt,
@@ -130,6 +130,31 @@ def submit_interview():
                 conn.close()
             except Exception:
                 pass
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.get("/sessions/<int:session_id>")
+@jwt_required()
+def get_interview_session(session_id: int):
+    """Return one session with Q&A and stored evaluation for the current user."""
+    try:
+        user_id = _current_user_id()
+        conn = get_db_conn()
+        try:
+            detail = get_session_detail(conn, session_id, user_id)
+            if detail is None:
+                return jsonify({"error": "Session not found"}), 404
+            return jsonify(detail), 200
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -137,14 +162,14 @@ def submit_interview():
 @bp.get("/sessions")
 @jwt_required()
 def get_user_sessions():
-    """Get all interview sessions for the current user"""
+    """List interview sessions for the current user (metadata + answer counts)."""
     try:
         user_id = _current_user_id()
         conn = get_db_conn()
 
         try:
             dao = MockInterviewDAO(conn)
-            sessions = dao.get_user_sessions(user_id)
+            sessions = dao.list_user_sessions_summary(user_id)
             return jsonify({"sessions": sessions}), 200
         finally:
             try:

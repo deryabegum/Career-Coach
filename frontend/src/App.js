@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import './App.css';
+import { clearDashboardCache } from './utils/dashboardCache';
 import Dashboard from './components/Dashboard';
 import Resume from './components/Resume';
 import MockInterview from './MockInterview';
@@ -18,15 +19,14 @@ function App() {
   // Default page is 'login' if no token, 'dashboard' if there is one
   const [currentPage, setCurrentPage] = useState(token ? 'dashboard' : 'login');
 
-  // Logout function
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
+    clearDashboardCache();
     localStorage.removeItem('token');
     setToken(null);
     setCurrentPage('login');
-  };
+  }, []);
 
-  const renderContent = () => {
-    // If user is not logged in, only show login/register
+  const mainContent = useMemo(() => {
     if (!token) {
       if (currentPage === 'login') {
         return <Login setToken={setToken} setCurrentPage={setCurrentPage} />;
@@ -34,13 +34,12 @@ function App() {
       if (currentPage === 'register') {
         return <Register setCurrentPage={setCurrentPage} />;
       }
-      // Fallback for any weird state
       return <Login setToken={setToken} setCurrentPage={setCurrentPage} />;
     }
 
-    // If user IS logged in, show app pages
-    if (currentPage === 'dashboard')
+    if (currentPage === 'dashboard') {
       return <Dashboard setCurrentPage={setCurrentPage} />;
+    }
     if (currentPage === 'resume') return <Resume />;
     if (currentPage === 'interview') return <MockInterview />;
     if (currentPage === 'job-match') return <JobMatch />;
@@ -48,9 +47,8 @@ function App() {
     if (currentPage === 'applications') return <Applications />;
     if (currentPage === 'account-settings') return <AccountSettings />;
 
-    // Fallback if logged in but page state is weird
     return <Dashboard setCurrentPage={setCurrentPage} />;
-  };
+  }, [token, currentPage]);
 
   return (
     <div className="App">
@@ -147,7 +145,7 @@ function App() {
         </div>
       </nav>
 
-      <div className="content">{renderContent()}</div>
+      <div className="content">{mainContent}</div>
     </div>
   );
 }
