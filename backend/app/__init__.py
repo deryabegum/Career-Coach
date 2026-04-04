@@ -4,7 +4,7 @@ from flask_cors import CORS
 from werkzeug.exceptions import RequestEntityTooLarge
 import os
 
-from .extensions import bcrypt, jwt
+from .extensions import bcrypt, jwt, limiter
 
 
 def create_app():
@@ -54,6 +54,7 @@ def create_app():
     CORS(app, resources={r"/api/*": {"origins": "*", "supports_credentials": True}})
     bcrypt.init_app(app)
     jwt.init_app(app)
+    limiter.init_app(app)
 
     # JWT Error Handlers
     @jwt.expired_token_loader

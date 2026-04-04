@@ -1,5 +1,6 @@
 # backend/app/features/jwt_auth/api.py
 import os
+import re
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import (
     create_access_token,
@@ -13,8 +14,13 @@ from .service import (
     verify_pw,
 )
 from ... import db
+from ...extensions import limiter
 
 bp = Blueprint("auth", __name__, url_prefix="/api/v1/auth")
+
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+_PW_LETTER = re.compile(r"[a-zA-Z]")
+_PW_DIGIT  = re.compile(r"\d")
 
 
 @bp.post("/register")
@@ -27,6 +33,15 @@ def register():
     if not email or not password or not name:
         return jsonify({"error": "email, password, and name are required"}), 400
 
+    if not _EMAIL_RE.match(email):
+        return jsonify({"error": "invalid email format"}), 400
+
+    if len(password) < 8:
+        return jsonify({"error": "password must be at least 8 characters"}), 400
+
+    if not _PW_LETTER.search(password) or not _PW_DIGIT.search(password):
+        return jsonify({"error": "password must contain at least one letter and one number"}), 400
+
     if get_user_by_email(email):
         return jsonify({"error": "email already exists"}), 409
 
@@ -35,6 +50,7 @@ def register():
 
 
 @bp.post("/login")
+@limiter.limit("5 per minute")
 def login():
     """
     Verifies email/password and returns JWT access and refresh tokens.
@@ -79,6 +95,76 @@ def refresh():
 @jwt_required()
 def me():
     return jsonify({"user_id": int(get_jwt_identity())}), 200
+
+
+@bp.get("/profile")
+@jwt_required()
+def profile():
+    user_id = int(get_jwt_identity())
+    conn = db.get_db()
+
+    user = conn.execute(
+        "SELECT name, email, created_at FROM users WHERE id = ?", (user_id,)
+    ).fetchone()
+
+    resume_count = conn.execute(
+        "SELECT COUNT(*) FROM resumes WHERE user_id = ?", (user_id,)
+    ).fetchone()[0]
+
+    interview_count = conn.execute(
+        "SELECT COUNT(*) FROM interview_sessions WHERE user_id = ?", (user_id,)
+    ).fetchone()[0]
+
+    return jsonify({
+        "name": user["name"],
+        "email": user["email"],
+        "joined": user["created_at"],
+        "resume_count": resume_count,
+        "interview_count": interview_count,
+    }), 200
+
+
+@bp.put("/account")
+@jwt_required()
+def update_account():
+    user_id = int(get_jwt_identity())
+    data = request.get_json(force=True) or {}
+    conn = db.get_db()
+
+    name     = (data.get("name") or "").strip()
+    email    = (data.get("email") or "").strip().lower()
+    password = data.get("password") or ""
+
+    if not name and not email and not password:
+        return jsonify({"error": "no fields provided to update"}), 400
+
+    if email and not _EMAIL_RE.match(email):
+        return jsonify({"error": "invalid email format"}), 400
+
+    if email:
+        existing = conn.execute(
+            "SELECT id FROM users WHERE email = ? AND id != ?", (email, user_id)
+        ).fetchone()
+        if existing:
+            return jsonify({"error": "email already in use"}), 409
+
+    if password:
+        if len(password) < 8:
+            return jsonify({"error": "password must be at least 8 characters"}), 400
+        if not _PW_LETTER.search(password) or not _PW_DIGIT.search(password):
+            return jsonify({"error": "password must contain at least one letter and one number"}), 400
+
+    if name:
+        conn.execute("UPDATE users SET name = ? WHERE id = ?", (name, user_id))
+    if email:
+        conn.execute("UPDATE users SET email = ? WHERE id = ?", (email, user_id))
+    if password:
+        from ...extensions import bcrypt as _bcrypt
+        pw_hash = _bcrypt.generate_password_hash(password).decode("utf-8")
+        conn.execute("UPDATE users SET password_hash = ? WHERE id = ?", (pw_hash, user_id))
+
+    conn.commit()
+    return jsonify({"ok": True}), 200
 
 
 @bp.delete("/account")
