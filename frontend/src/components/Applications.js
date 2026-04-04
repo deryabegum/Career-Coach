@@ -1,36 +1,43 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { api } from '../api';
 import './Applications.css';
 
 const STAGES = [
-  { value: 'applied',      label: 'Applied' },
+  { value: 'applied', label: 'Applied' },
   { value: 'phone_screen', label: 'Phone Screen' },
-  { value: 'interview',    label: 'Interview' },
-  { value: 'offer',        label: 'Offer' },
-  { value: 'rejected',     label: 'Rejected' },
+  { value: 'interview', label: 'Interview' },
+  { value: 'offer', label: 'Offer' },
+  { value: 'rejected', label: 'Rejected' },
 ];
 
 const STAGE_COLORS = {
-  applied:      '#6366f1',
+  applied: '#6366f1',
   phone_screen: '#fbbf24',
-  interview:    '#FF8C00',
-  offer:        '#22c55e',
-  rejected:     '#ef4444',
+  interview: '#FF8C00',
+  offer: '#22c55e',
+  rejected: '#ef4444',
 };
 
-const EMPTY_FORM = { company_name: '', applied_date: '', stage: 'applied', field: '' };
+const EMPTY_FORM = {
+  company_name: '',
+  applied_date: '',
+  stage: 'applied',
+  field: '',
+};
 
 export default function Applications() {
-  const [apps, setApps]           = useState([]);
-  const [loading, setLoading]     = useState(true);
-  const [err, setErr]             = useState('');
-  const [showForm, setShowForm]   = useState(false);
-  const [form, setForm]           = useState(EMPTY_FORM);
-  const [saving, setSaving]       = useState(false);
-  const [formErr, setFormErr]     = useState('');
+  const [apps, setApps] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState('');
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
+  const [formErr, setFormErr] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     let alive = true;
+
     (async () => {
       try {
         setLoading(true);
@@ -44,25 +51,43 @@ export default function Applications() {
         if (alive) setLoading(false);
       }
     })();
-    return () => { alive = false; };
+
+    return () => {
+      alive = false;
+    };
   }, []);
 
   const handleFormChange = (e) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    setForm((prev) => ({
+      ...prev,
+      [e.target.name]: e.target.value,
+    }));
   };
 
   const handleAdd = async (e) => {
     e.preventDefault();
     setFormErr('');
-    if (!form.company_name.trim()) { setFormErr('Company name is required.'); return; }
-    if (!form.applied_date)        { setFormErr('Application date is required.'); return; }
+
+    if (!form.company_name.trim()) {
+      setFormErr('Company name is required.');
+      return;
+    }
+
+    if (!form.applied_date) {
+      setFormErr('Application date is required.');
+      return;
+    }
+
     setSaving(true);
+
     try {
       const res = await api.createApplication(form);
+
       setApps((prev) => [
         { id: res.id, ...form, created_at: new Date().toISOString() },
         ...prev,
       ]);
+
       setForm(EMPTY_FORM);
       setShowForm(false);
     } catch (e) {
@@ -92,6 +117,23 @@ export default function Applications() {
     }
   };
 
+  const filteredApps = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+
+    if (!term) return apps;
+
+    return apps.filter((app) => {
+      const stageLabel =
+        STAGES.find((s) => s.value === app.stage)?.label.toLowerCase() || '';
+
+      return (
+        (app.company_name || '').toLowerCase().includes(term) ||
+        (app.field || '').toLowerCase().includes(term) ||
+        stageLabel.includes(term)
+      );
+    });
+  }, [apps, searchTerm]);
+
   return (
     <div className="apps-container">
       <header className="apps-header">
@@ -101,11 +143,24 @@ export default function Applications() {
         </div>
         <button
           className="apps-add-btn"
-          onClick={() => { setShowForm((v) => !v); setFormErr(''); }}
+          onClick={() => {
+            setShowForm((v) => !v);
+            setFormErr('');
+          }}
         >
           {showForm ? '✕ Cancel' : '+ New Application'}
         </button>
       </header>
+
+      <div className="apps-search-bar">
+        <input
+          type="text"
+          placeholder="Search by company, field, or stage..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="apps-search-input"
+        />
+      </div>
 
       {showForm && (
         <form className="apps-form" onSubmit={handleAdd}>
@@ -119,6 +174,7 @@ export default function Applications() {
                 placeholder="e.g. Google"
               />
             </div>
+
             <div className="apps-field">
               <label>Date Applied *</label>
               <input
@@ -128,14 +184,22 @@ export default function Applications() {
                 onChange={handleFormChange}
               />
             </div>
+
             <div className="apps-field">
               <label>Stage</label>
-              <select name="stage" value={form.stage} onChange={handleFormChange}>
+              <select
+                name="stage"
+                value={form.stage}
+                onChange={handleFormChange}
+              >
                 {STAGES.map((s) => (
-                  <option key={s.value} value={s.value}>{s.label}</option>
+                  <option key={s.value} value={s.value}>
+                    {s.label}
+                  </option>
                 ))}
               </select>
             </div>
+
             <div className="apps-field">
               <label>Field / Area</label>
               <input
@@ -146,7 +210,9 @@ export default function Applications() {
               />
             </div>
           </div>
+
           {formErr && <p className="apps-form-err">{formErr}</p>}
+
           <button type="submit" className="apps-submit-btn" disabled={saving}>
             {saving ? 'Saving…' : 'Save Application'}
           </button>
@@ -154,7 +220,7 @@ export default function Applications() {
       )}
 
       {loading && <p className="apps-status">Loading applications…</p>}
-      {err     && <p className="apps-error">{err}</p>}
+      {err && <p className="apps-error">{err}</p>}
 
       {!loading && !err && apps.length === 0 && (
         <div className="apps-empty">
@@ -162,11 +228,18 @@ export default function Applications() {
         </div>
       )}
 
-      {!loading && apps.length > 0 && (
+      {!loading && !err && apps.length > 0 && filteredApps.length === 0 && (
+        <div className="apps-empty">
+          <p>No applications match your search.</p>
+        </div>
+      )}
+
+      {!loading && filteredApps.length > 0 && (
         <div className="apps-groups">
           {STAGES.map((stage) => {
-            const group = apps.filter((a) => a.stage === stage.value);
+            const group = filteredApps.filter((a) => a.stage === stage.value);
             if (group.length === 0) return null;
+
             return (
               <div key={stage.value} className="apps-group">
                 <div className="apps-group-header">
@@ -177,6 +250,7 @@ export default function Applications() {
                   <h2 className="apps-group-title">{stage.label}</h2>
                   <span className="apps-group-count">{group.length}</span>
                 </div>
+
                 <div className="apps-grid">
                   {group.map((app) => (
                     <div key={app.id} className="apps-card">
@@ -197,9 +271,14 @@ export default function Applications() {
 
                       <div className="apps-card-meta">
                         <span className="apps-date">
-                          {new Date(app.applied_date).toLocaleDateString('en-US', {
-                            year: 'numeric', month: 'short', day: 'numeric',
-                          })}
+                          {new Date(app.applied_date).toLocaleDateString(
+                            'en-US',
+                            {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                            }
+                          )}
                         </span>
                       </div>
 
@@ -207,10 +286,14 @@ export default function Applications() {
                         <select
                           className="apps-stage-select"
                           value={app.stage}
-                          onChange={(e) => handleStageChange(app, e.target.value)}
+                          onChange={(e) =>
+                            handleStageChange(app, e.target.value)
+                          }
                         >
                           {STAGES.map((s) => (
-                            <option key={s.value} value={s.value}>{s.label}</option>
+                            <option key={s.value} value={s.value}>
+                              {s.label}
+                            </option>
                           ))}
                         </select>
                       </div>

@@ -41,6 +41,32 @@
   background: #e07b00;
 }
 
+.apps-search-bar {
+  margin-bottom: 1.5rem;
+}
+
+.apps-search-input {
+  width: 100%;
+  max-width: 420px;
+  background: #111827;
+  border: 1px solid #374151;
+  border-radius: 10px;
+  color: #f9fafb;
+  padding: 0.7rem 0.9rem;
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.apps-search-input:focus {
+  border-color: #FF8C00;
+  box-shadow: 0 0 0 2px rgba(255, 140, 0, 0.15);
+}
+
+.apps-search-input::placeholder {
+  color: #6b7280;
+}
+
 /* Form */
 .apps-form {
   background: #111827;
@@ -292,6 +318,10 @@
 }
 
 @media (max-width: 600px) {
+  .apps-search-input {
+    max-width: 100%;
+  }
+
   .apps-form-grid {
     grid-template-columns: 1fr;
   }
