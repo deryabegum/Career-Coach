@@ -113,6 +113,9 @@ export const api = {
 
   getUserSessions: () => request('/api/v1/mock-interview/sessions'),
 
+  getInterviewSession: (sessionId) =>
+    request(`/api/v1/mock-interview/sessions/${sessionId}`),
+
   // Job Applications endpoints
   getApplications: () => request('/api/v1/applications/'),
   createApplication: (data) =>

@@ -93,9 +93,14 @@ CREATE TABLE interview_answers (
 
 CREATE TABLE interviews (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER REFERENCES users(id),
   role TEXT NOT NULL,
   company TEXT NOT NULL,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  submitted_at TEXT,
+  average_score REAL,
+  total_score REAL,
+  questions_json TEXT
 );
 
 -- Career resources (articles, resume guides, interview tips)

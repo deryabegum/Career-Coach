@@ -114,6 +114,21 @@ def create_app():
                 created_at   TEXT    NOT NULL DEFAULT (datetime('now'))
             )
         """)
+        _interview_cols = {
+            row[1] for row in _db.execute("PRAGMA table_info(interviews)").fetchall()
+        }
+        if "user_id" not in _interview_cols:
+            _db.execute(
+                "ALTER TABLE interviews ADD COLUMN user_id INTEGER REFERENCES users(id)"
+            )
+        if "submitted_at" not in _interview_cols:
+            _db.execute("ALTER TABLE interviews ADD COLUMN submitted_at TEXT")
+        if "average_score" not in _interview_cols:
+            _db.execute("ALTER TABLE interviews ADD COLUMN average_score REAL")
+        if "total_score" not in _interview_cols:
+            _db.execute("ALTER TABLE interviews ADD COLUMN total_score REAL")
+        if "questions_json" not in _interview_cols:
+            _db.execute("ALTER TABLE interviews ADD COLUMN questions_json TEXT")
         _db.commit()
 
     # Dashboard summary routes (/api/v1/dashboard/summary)
