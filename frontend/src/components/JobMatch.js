@@ -216,9 +216,9 @@ const JobMatch = () => {
 
       <div className="auth-container job-match-analyzer" ref={analyzerRef}>
         <div className="auth-card" style={{ maxWidth: '900px' }}>
-          <h2>Resume Keyword Match</h2>
+          <h2>Resume Job Match</h2>
           <p style={{ color: '#AAAAAA', marginTop: '-1rem', marginBottom: '2rem', textAlign: 'center' }}>
-            Paste a full job description below to compare it against your most recent resume.
+            Paste a full job description below to compare it against your most recent resume with semantic matching.
           </p>
 
           <form onSubmit={handleSubmit} noValidate>
@@ -247,6 +247,52 @@ const JobMatch = () => {
               <h4 className="results-score">
                 {Math.round(matchResult.score * 100)}% Match
               </h4>
+
+              <div className="match-metrics-grid">
+                <div className="match-metric-card">
+                  <span className="match-metric-label">Semantic Fit</span>
+                  <strong>{Math.round((matchResult.semantic_score || 0) * 100)}%</strong>
+                  <p>How closely the resume experience aligns in meaning with the job description.</p>
+                </div>
+                <div className="match-metric-card">
+                  <span className="match-metric-label">Keyword Overlap</span>
+                  <strong>{Math.round((matchResult.lexical_overlap || 0) * 100)}%</strong>
+                  <p>Shared skills, tools, and role-specific terms found in both documents.</p>
+                </div>
+                <div className="match-metric-card">
+                  <span className="match-metric-label">Requirement Coverage</span>
+                  <strong>{Math.round((matchResult.coverage_score || 0) * 100)}%</strong>
+                  <p>How many job-description sections found a strong match in the resume.</p>
+                </div>
+              </div>
+
+              {matchResult.top_matches?.length > 0 && (
+                <div className="match-highlights">
+                  <div className="match-highlights-header">
+                    <h5>Top Matching Evidence</h5>
+                    <span className="job-chip">{matchResult.method === 'tfidf-fallback' ? 'Fallback mode' : 'Semantic match'}</span>
+                  </div>
+                  <div className="match-highlight-list">
+                    {matchResult.top_matches.map((item, index) => (
+                      <div className="match-highlight-card" key={`highlight-${index}`}>
+                        <div className="match-highlight-score">
+                          {Math.round((item.score || 0) * 100)}% aligned
+                        </div>
+                        <div className="match-highlight-columns">
+                          <div>
+                            <span className="match-highlight-label">Job need</span>
+                            <p>{item.job_excerpt}</p>
+                          </div>
+                          <div>
+                            <span className="match-highlight-label">Resume evidence</span>
+                            <p>{item.resume_excerpt}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="results-columns">
                 <div className="results-column results-column-matched">

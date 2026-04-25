@@ -153,6 +153,105 @@
   margin-bottom: 2rem;
 }
 
+.match-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.match-metric-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 1rem 1.1rem;
+}
+
+.match-metric-label {
+  display: block;
+  color: #FFB347;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 0.45rem;
+}
+
+.match-metric-card strong {
+  display: block;
+  color: #FFFFFF;
+  font-size: 1.55rem;
+  margin-bottom: 0.5rem;
+}
+
+.match-metric-card p {
+  margin: 0;
+  color: #BBBBBB;
+  line-height: 1.5;
+  font-size: 0.9rem;
+}
+
+.match-highlights {
+  margin-bottom: 2rem;
+}
+
+.match-highlights-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.match-highlights-header h5 {
+  margin: 0;
+  color: #FFFFFF;
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.match-highlight-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.match-highlight-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 1rem 1.1rem;
+}
+
+.match-highlight-score {
+  color: #FFB347;
+  font-weight: 700;
+  margin-bottom: 0.9rem;
+}
+
+.match-highlight-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.match-highlight-label {
+  display: block;
+  color: #AAAAAA;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 0.4rem;
+}
+
+.match-highlight-columns p {
+  margin: 0;
+  color: #F3F3F3;
+  line-height: 1.6;
+}
+
 .results-columns {
   display: flex;
   flex-direction: row;
@@ -362,11 +461,16 @@
 }
 
 @media (max-width: 768px) {
+  .match-metrics-grid,
   .results-columns,
   .job-feed-controls,
   .job-card-actions,
   .job-feed-header {
     grid-template-columns: 1fr;
     flex-direction: column;
+  }
+
+  .match-highlight-columns {
+    grid-template-columns: 1fr;
   }
 }
