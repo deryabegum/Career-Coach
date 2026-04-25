@@ -1,5 +1,6 @@
 from ...db import get_db
 from ...extensions import bcrypt
+from werkzeug.security import check_password_hash as werkzeug_check_password_hash
 
 
 def create_user(email: str, password: str, name: str):
@@ -20,4 +21,13 @@ def get_user_by_email(email: str):
 
 
 def verify_pw(password: str, hashed: str) -> bool:
-    return bcrypt.check_password_hash(hashed, password)
+    if not hashed:
+        return False
+
+    if hashed.startswith("scrypt:") or hashed.startswith("pbkdf2:"):
+        return werkzeug_check_password_hash(hashed, password)
+
+    try:
+        return bcrypt.check_password_hash(hashed, password)
+    except ValueError:
+        return False

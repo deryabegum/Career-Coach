@@ -27,8 +27,8 @@ const Dashboard = ({ setCurrentPage }) => {
           credentials: 'include',
         });
 
-        // 4. Handle 401 / session expired with auto-logout
-        if (res.status === 401) {
+        // 4. Handle invalid/expired sessions with auto-logout
+        if (res.status === 401 || res.status === 422) {
           let body = {};
           try {
             body = await res.json();
@@ -36,18 +36,19 @@ const Dashboard = ({ setCurrentPage }) => {
             body = {};
           }
 
-          if (body.msg === 'token_expired') {
+          if (body.msg === 'token_expired' || body.error === 'Token has expired') {
             if (alive) {
               setErr('Your session has expired. Please log in again.');
             }
           } else {
             if (alive) {
-              setErr('You are not authorized. Please log in again.');
+              setErr('Your session is invalid. Please log in again.');
             }
           }
 
           localStorage.removeItem('token');
           localStorage.removeItem('refreshToken');
+          window.dispatchEvent(new Event('auth:expired'));
 
           if (alive) {
             setLoading(false);

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import './App.css';
 import Dashboard from './components/Dashboard';
 import Resume from './components/Resume';
@@ -20,9 +20,22 @@ function App() {
   // Logout function
   const handleLogout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
     setToken(null);
     setCurrentPage('login');
   };
+
+  useEffect(() => {
+    const handleAuthExpired = () => {
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
+      setToken(null);
+      setCurrentPage('login');
+    };
+
+    window.addEventListener('auth:expired', handleAuthExpired);
+    return () => window.removeEventListener('auth:expired', handleAuthExpired);
+  }, []);
 
   const renderContent = () => {
     // If user is not logged in, only show login/register

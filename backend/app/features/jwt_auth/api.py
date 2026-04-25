@@ -70,7 +70,7 @@ def refresh():
     """
     Uses a valid refresh token to issue a new access token.
     """
-    identity = int(get_jwt_identity())
+    identity = str(get_jwt_identity())
     new_access_token = create_access_token(identity=identity)
     return jsonify({"accessToken": new_access_token}), 200
 
@@ -78,7 +78,7 @@ def refresh():
 @bp.get("/me")
 @jwt_required()
 def me():
-    return jsonify({"user_id": int(get_jwt_identity())}), 200
+    return jsonify({"user_id": int(str(get_jwt_identity()))}), 200
 
 
 @bp.delete("/account")
