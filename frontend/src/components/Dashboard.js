@@ -103,18 +103,15 @@ function Dashboard({ setCurrentPage }) {
           throw new Error('No token found. Please log in.');
         }
 
-        // 2. Build headers with Authorization
         const headers = new Headers();
         headers.append('Authorization', `Bearer ${token}`);
 
-        // 3. Request dashboard summary with headers
-        const res = await fetch('/api/v1/dashboard/summary', { 
+        const res = await fetch('/api/v1/dashboard/summary', {
           headers,
           method: 'GET',
           credentials: 'include',
         });
 
-        // 4. Handle invalid/expired sessions with auto-logout
         if (res.status === 401 || res.status === 422) {
           let body = {};
           try {
@@ -124,20 +121,14 @@ function Dashboard({ setCurrentPage }) {
           }
 
           if (body.msg === 'token_expired' || body.error === 'Token has expired') {
-            if (alive) {
-              setErr('Your session has expired. Please log in again.');
-            }
+            if (alive) setErr('Your session has expired. Please log in again.');
           } else {
-            if (alive) {
-              setErr('Your session is invalid. Please log in again.');
-            }
+            if (alive) setErr('Your session is invalid. Please log in again.');
           }
 
-        if (e.status === 401) {
           localStorage.removeItem('token');
           localStorage.removeItem('refreshToken');
           window.dispatchEvent(new Event('auth:expired'));
-
           if (alive) {
             setLoading(false);
             setCurrentPage('login');
@@ -145,10 +136,27 @@ function Dashboard({ setCurrentPage }) {
           return;
         }
 
-        setLoading(false);
-        if (hadBootstrapCacheRef.current) {
+        if (!res.ok) throw new Error(`Server error: ${res.status}`);
+
+        const data = await res.json();
+        writeDashboardCache(data);
+        if (alive) {
+          setUserStats(mapSummaryToStats(data));
+          setLoading(false);
+        }
+      } catch (e) {
+        if (e.status === 401) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('refreshToken');
+          window.dispatchEvent(new Event('auth:expired'));
+          if (alive) {
+            setLoading(false);
+            setCurrentPage('login');
+          }
           return;
         }
+        setLoading(false);
+        if (hadBootstrapCacheRef.current) return;
         setErr(e.message || 'Failed to load dashboard');
       }
     })();

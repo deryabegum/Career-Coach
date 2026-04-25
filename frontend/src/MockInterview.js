@@ -174,12 +174,12 @@ export default function MockInterviewPage() {
   }, [started, checkMicrophonePermission]);
 
   const startInterview = useCallback(async () => {
-    // Check microphone permission first
+    // Request microphone permission but don't block if unavailable
     if (micPermissionStatus !== 'granted') {
       const permissionGranted = await requestMicrophonePermission();
       if (!permissionGranted) {
-        // Don't start interview if microphone access is denied
-        return;
+        setMicError("Microphone not available — voice features disabled.");
+        // continue anyway
       }
     }
 

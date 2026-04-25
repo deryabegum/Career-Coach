@@ -19,6 +19,7 @@ flask-cors==6.0.1
 Flask-JWT-Extended==4.6.0
 Flask-Limiter==3.9.0
 fsspec==2025.9.0
+google-generativeai
 h11==0.16.0
 hf-xet==1.1.10
 httptools==0.7.1

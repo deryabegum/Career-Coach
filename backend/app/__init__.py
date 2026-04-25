@@ -130,6 +130,11 @@ def create_app():
         if "questions_json" not in _interview_cols:
             _db.execute("ALTER TABLE interviews ADD COLUMN questions_json TEXT")
         _db.commit()
+        # Migration: add user_id to interviews table if missing
+        interviews_cols = {row[1] for row in _db.execute("PRAGMA table_info(interviews)").fetchall()}
+        if "user_id" not in interviews_cols:
+            _db.execute("ALTER TABLE interviews ADD COLUMN user_id INTEGER")
+            _db.commit()
 
     # Dashboard summary routes (/api/v1/dashboard/summary)
     from .features.dashboard_summary.api import bp as dashboard_summary_bp
