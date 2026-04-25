@@ -658,3 +658,159 @@
     padding: 1.25rem;
   }
 }
+
+/* Past sessions overlay */
+.mi-history-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 1rem;
+}
+
+@media (min-width: 640px) {
+  .mi-history-overlay {
+    align-items: center;
+  }
+}
+
+.mi-history-backdrop {
+  position: absolute;
+  inset: 0;
+  border: none;
+  padding: 0;
+  margin: 0;
+  background: rgba(0, 0, 0, 0.55);
+  cursor: pointer;
+}
+
+.mi-history-panel {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 640px;
+  max-height: min(88vh, 720px);
+  overflow: auto;
+  background: var(--mi-surface, #2c2c2c);
+  border: 1px solid var(--mi-border-accent, rgba(255, 140, 0, 0.22));
+  border-radius: 20px;
+  box-shadow: var(--mi-shadow, 0 20px 40px rgba(0, 0, 0, 0.22));
+  padding: 1.25rem 1.5rem 1.5rem;
+}
+
+.mi-history-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.mi-history-title {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--mi-text, #fff);
+}
+
+.mi-history-muted {
+  color: var(--mi-text-soft, #aaa);
+  font-size: 0.9rem;
+  margin: 0.5rem 0;
+}
+
+.mi-history-error {
+  background: var(--mi-danger-bg, rgba(251, 113, 133, 0.12));
+  color: var(--mi-danger, #fb7185);
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  margin-bottom: 0.75rem;
+}
+
+.mi-history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.mi-history-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  text-align: left;
+  padding: 0.85rem 1rem;
+  border-radius: 14px;
+  border: 1px solid var(--mi-border, rgba(255, 255, 255, 0.1));
+  background: var(--mi-surface-soft, rgba(255, 255, 255, 0.04));
+  color: var(--mi-text, #fff);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.mi-history-row:hover {
+  border-color: var(--mi-border-accent, rgba(255, 140, 0, 0.22));
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.mi-history-row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.mi-history-row-title {
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.mi-history-row-sub {
+  font-size: 0.78rem;
+  color: var(--mi-text-soft, #aaa);
+}
+
+.mi-history-row-score {
+  font-weight: 800;
+  font-size: 0.85rem;
+  color: var(--mi-accent, #ff8c00);
+  flex-shrink: 0;
+}
+
+.mi-history-row-chevron {
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+.mi-history-meta {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--mi-text-soft, #aaa);
+  margin-bottom: 1rem;
+}
+
+.mi-history-meta p {
+  margin: 0.25rem 0;
+}
+
+.mi-history-meta strong {
+  color: var(--mi-text, #fff);
+  font-weight: 600;
+}
+
+.mi-history-items {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.mi-history-item.card {
+  margin: 0;
+}

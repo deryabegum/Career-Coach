@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { clearDashboardCache } from '../utils/dashboardCache';
 
 const Login = ({ setToken, setCurrentPage }) => {
   const [email, setEmail] = useState('');
@@ -29,6 +30,7 @@ const Login = ({ setToken, setCurrentPage }) => {
       }
 
       const data = await response.json();
+      clearDashboardCache();
       localStorage.setItem('token', data.accessToken);
       setToken(data.accessToken);
       setCurrentPage('dashboard');

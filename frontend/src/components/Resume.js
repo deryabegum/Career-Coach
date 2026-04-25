@@ -15,6 +15,29 @@ const formatDate = (value) => {
   return new Date(value).toLocaleString();
 };
 
+const EMPTY_FIELDS = {
+  name: '',
+  email: '',
+  phone: '',
+  summary: '',
+  skills: [],
+  work_experience: [],
+  education: [],
+};
+
+function fieldsFromResume(detail) {
+  const d = detail?.extractedData || {};
+  return {
+    name: d.name || '',
+    email: d.email || '',
+    phone: d.phone || '',
+    summary: d.summary || '',
+    skills: Array.isArray(d.skills) ? d.skills : [],
+    work_experience: Array.isArray(d.work_experience) ? d.work_experience : [],
+    education: Array.isArray(d.education) ? d.education : [],
+  };
+}
+
 const Resume = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [resumes, setResumes] = useState([]);
@@ -23,10 +46,18 @@ const Resume = () => {
   const [activeResume, setActiveResume] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [savingFields, setSavingFields] = useState(false);
   const [loadingResumes, setLoadingResumes] = useState(true);
   const [fileError, setFileError] = useState('');
   const [uploadError, setUploadError] = useState('');
   const [saveMessage, setSaveMessage] = useState('');
+  const [activeTab, setActiveTab] = useState('fields');
+
+  // Fields editor state
+  const [fields, setFields] = useState(EMPTY_FIELDS);
+  const [newSkill, setNewSkill] = useState('');
+  const [editingExpIndex, setEditingExpIndex] = useState(null);
+  const [editingEduIndex, setEditingEduIndex] = useState(null);
 
   const allowedMimeTypes = [
     'application/pdf',
@@ -46,6 +77,7 @@ const Resume = () => {
         setActiveResumeId(null);
         setActiveResume(null);
         setResumeText('');
+        setFields(EMPTY_FIELDS);
         return;
       }
 
@@ -56,6 +88,9 @@ const Resume = () => {
       const detail = await api.getResume(selected.id);
       setActiveResume(detail);
       setResumeText(detail.resumeText || '');
+      setFields(fieldsFromResume(detail));
+      setEditingExpIndex(null);
+      setEditingEduIndex(null);
     } catch (error) {
       setUploadError(error.message || 'Could not load resumes.');
     } finally {
@@ -125,10 +160,13 @@ const Resume = () => {
     setUploadError('');
     setSaveMessage('');
     setActiveResumeId(resumeId);
+    setEditingExpIndex(null);
+    setEditingEduIndex(null);
     try {
       const detail = await api.getResume(resumeId);
       setActiveResume(detail);
       setResumeText(detail.resumeText || '');
+      setFields(fieldsFromResume(detail));
     } catch (error) {
       setUploadError(error.message || 'Could not load this resume.');
     }
@@ -158,6 +196,28 @@ const Resume = () => {
     }
   };
 
+  const handleSaveFields = async () => {
+    if (!activeResumeId) return;
+    setSavingFields(true);
+    setUploadError('');
+    setSaveMessage('');
+    try {
+      const payload = {
+        ...fields,
+        name: fields.name || null,
+        email: fields.email || null,
+        phone: fields.phone || null,
+        summary: fields.summary || null,
+      };
+      await api.updateResumeFields(activeResumeId, payload);
+      setSaveMessage('Fields saved successfully.');
+    } catch (error) {
+      setUploadError(error.message || 'Could not save fields.');
+    } finally {
+      setSavingFields(false);
+    }
+  };
+
   const handleDelete = async (resumeId) => {
     try {
       await api.deleteResume(resumeId);
@@ -170,15 +230,77 @@ const Resume = () => {
           const detail = await api.getResume(nextResumeId);
           setActiveResume(detail);
           setResumeText(detail.resumeText || '');
+          setFields(fieldsFromResume(detail));
         } else {
           setActiveResume(null);
           setResumeText('');
+          setFields(EMPTY_FIELDS);
         }
       }
       setSaveMessage('Resume deleted.');
     } catch (error) {
       setUploadError(error.message || 'Could not delete resume.');
     }
+  };
+
+  // Skills helpers
+  const addSkill = () => {
+    const trimmed = newSkill.trim();
+    if (!trimmed) return;
+    setFields((f) => ({ ...f, skills: [...f.skills, trimmed] }));
+    setNewSkill('');
+  };
+
+  const removeSkill = (index) => {
+    setFields((f) => ({ ...f, skills: f.skills.filter((_, i) => i !== index) }));
+  };
+
+  // Work experience helpers
+  const updateExp = (index, key, value) => {
+    setFields((f) => {
+      const updated = f.work_experience.map((exp, i) =>
+        i === index ? { ...exp, [key]: value } : exp
+      );
+      return { ...f, work_experience: updated };
+    });
+  };
+
+  const removeExp = (index) => {
+    setFields((f) => ({ ...f, work_experience: f.work_experience.filter((_, i) => i !== index) }));
+    setEditingExpIndex(null);
+  };
+
+  const addExp = () => {
+    const newIndex = fields.work_experience.length;
+    setFields((f) => ({
+      ...f,
+      work_experience: [...f.work_experience, { company: '', role: '', start_date: '', end_date: '', description: '' }],
+    }));
+    setEditingExpIndex(newIndex);
+  };
+
+  // Education helpers
+  const updateEdu = (index, key, value) => {
+    setFields((f) => {
+      const updated = f.education.map((edu, i) =>
+        i === index ? { ...edu, [key]: value } : edu
+      );
+      return { ...f, education: updated };
+    });
+  };
+
+  const removeEdu = (index) => {
+    setFields((f) => ({ ...f, education: f.education.filter((_, i) => i !== index) }));
+    setEditingEduIndex(null);
+  };
+
+  const addEdu = () => {
+    const newIndex = fields.education.length;
+    setFields((f) => ({
+      ...f,
+      education: [...f.education, { institution: '', degree: '', field: '', year: '' }],
+    }));
+    setEditingEduIndex(newIndex);
   };
 
   return (
@@ -325,6 +447,238 @@ const Resume = () => {
               </button>
             </div>
           </div>
+
+          {activeTab === 'fields' ? (
+            <div className="fields-editor">
+
+              {/* Basic Info */}
+              <div className="fields-section">
+                <h4 className="fields-section-title">Basic Info</h4>
+                <div className="field-row">
+                  <span className="field-label">Name</span>
+                  <input
+                    className="field-input"
+                    value={fields.name}
+                    onChange={(e) => setFields((f) => ({ ...f, name: e.target.value }))}
+                    placeholder="Full name"
+                  />
+                </div>
+                <div className="field-row">
+                  <span className="field-label">Email</span>
+                  <input
+                    className="field-input"
+                    type="email"
+                    value={fields.email}
+                    onChange={(e) => setFields((f) => ({ ...f, email: e.target.value }))}
+                    placeholder="email@example.com"
+                  />
+                </div>
+                <div className="field-row">
+                  <span className="field-label">Phone</span>
+                  <input
+                    className="field-input"
+                    value={fields.phone}
+                    onChange={(e) => setFields((f) => ({ ...f, phone: e.target.value }))}
+                    placeholder="+1 (555) 000-0000"
+                  />
+                </div>
+              </div>
+
+              {/* Summary */}
+              <div className="fields-section">
+                <h4 className="fields-section-title">Summary</h4>
+                <textarea
+                  className="field-textarea"
+                  value={fields.summary}
+                  onChange={(e) => setFields((f) => ({ ...f, summary: e.target.value }))}
+                  placeholder="Brief professional summary..."
+                  rows={3}
+                />
+              </div>
+
+              {/* Skills */}
+              <div className="fields-section">
+                <h4 className="fields-section-title">Skills</h4>
+                <div className="skills-tags">
+                  {fields.skills.map((skill, i) => (
+                    <span key={i} className="skill-tag">
+                      {skill}
+                      <button
+                        type="button"
+                        className="skill-tag-remove"
+                        onClick={() => removeSkill(i)}
+                        aria-label={`Remove ${skill}`}
+                      >
+                        ✕
+                      </button>
+                    </span>
+                  ))}
+                  <input
+                    className="skill-add-input"
+                    placeholder="Add skill…"
+                    value={newSkill}
+                    onChange={(e) => setNewSkill(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') { e.preventDefault(); addSkill(); }
+                    }}
+                    onBlur={addSkill}
+                  />
+                </div>
+              </div>
+
+              {/* Work Experience */}
+              <div className="fields-section">
+                <h4 className="fields-section-title">Work Experience</h4>
+                {fields.work_experience.map((exp, i) => (
+                  <div key={i} className="entry-card">
+                    {editingExpIndex === i ? (
+                      <div className="entry-form">
+                        <input
+                          className="field-input"
+                          placeholder="Company"
+                          value={exp.company || ''}
+                          onChange={(e) => updateExp(i, 'company', e.target.value)}
+                        />
+                        <input
+                          className="field-input"
+                          placeholder="Role / Title"
+                          value={exp.role || ''}
+                          onChange={(e) => updateExp(i, 'role', e.target.value)}
+                        />
+                        <div className="entry-dates-row">
+                          <input
+                            className="field-input"
+                            placeholder="Start date"
+                            value={exp.start_date || ''}
+                            onChange={(e) => updateExp(i, 'start_date', e.target.value)}
+                          />
+                          <input
+                            className="field-input"
+                            placeholder="End date"
+                            value={exp.end_date || ''}
+                            onChange={(e) => updateExp(i, 'end_date', e.target.value)}
+                          />
+                        </div>
+                        <textarea
+                          className="field-textarea"
+                          placeholder="Description…"
+                          value={exp.description || ''}
+                          onChange={(e) => updateExp(i, 'description', e.target.value)}
+                          rows={3}
+                        />
+                        <div className="entry-actions">
+                          <button type="button" className="btn-secondary" onClick={() => setEditingExpIndex(null)}>Done</button>
+                          <button type="button" className="btn-danger-sm" onClick={() => removeExp(i)}>Remove</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="entry-header">
+                        <div className="entry-info">
+                          <strong className="entry-title">{exp.role || 'Unknown Role'}</strong>
+                          <span className="entry-sub"> at {exp.company || 'Unknown Company'}</span>
+                          {(exp.start_date || exp.end_date) && (
+                            <div className="entry-dates-text">
+                              {exp.start_date || '?'} – {exp.end_date || 'Present'}
+                            </div>
+                          )}
+                        </div>
+                        <button type="button" className="btn-secondary" onClick={() => setEditingExpIndex(i)}>Edit</button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                <button type="button" className="btn-add-entry" onClick={addExp}>+ Add Experience</button>
+              </div>
+
+              {/* Education */}
+              <div className="fields-section">
+                <h4 className="fields-section-title">Education</h4>
+                {fields.education.map((edu, i) => (
+                  <div key={i} className="entry-card">
+                    {editingEduIndex === i ? (
+                      <div className="entry-form">
+                        <input
+                          className="field-input"
+                          placeholder="Institution"
+                          value={edu.institution || ''}
+                          onChange={(e) => updateEdu(i, 'institution', e.target.value)}
+                        />
+                        <input
+                          className="field-input"
+                          placeholder="Degree (e.g. Bachelor's)"
+                          value={edu.degree || ''}
+                          onChange={(e) => updateEdu(i, 'degree', e.target.value)}
+                        />
+                        <input
+                          className="field-input"
+                          placeholder="Field of study"
+                          value={edu.field || ''}
+                          onChange={(e) => updateEdu(i, 'field', e.target.value)}
+                        />
+                        <input
+                          className="field-input"
+                          placeholder="Year (e.g. 2023)"
+                          value={edu.year || ''}
+                          onChange={(e) => updateEdu(i, 'year', e.target.value)}
+                        />
+                        <div className="entry-actions">
+                          <button type="button" className="btn-secondary" onClick={() => setEditingEduIndex(null)}>Done</button>
+                          <button type="button" className="btn-danger-sm" onClick={() => removeEdu(i)}>Remove</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="entry-header">
+                        <div className="entry-info">
+                          <strong className="entry-title">{edu.degree || 'Unknown Degree'}</strong>
+                          {edu.field && <span className="entry-sub"> in {edu.field}</span>}
+                          <div className="entry-sub">{edu.institution}</div>
+                          {edu.year && <div className="entry-dates-text">{edu.year}</div>}
+                        </div>
+                        <button type="button" className="btn-secondary" onClick={() => setEditingEduIndex(i)}>Edit</button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                <button type="button" className="btn-add-entry" onClick={addEdu}>+ Add Education</button>
+              </div>
+
+              <div className="resume-actions">
+                <button
+                  className="upload-button"
+                  onClick={handleSaveFields}
+                  disabled={savingFields}
+                  type="button"
+                >
+                  {savingFields ? 'Saving…' : 'Save Fields'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="resume-editor-card">
+              <label htmlFor="resume-text" className="resume-editor-label">
+                Extracted Resume Text
+              </label>
+              <p className="resume-editor-help">
+                Edit the extracted version of your resume here so you can refine wording inside the app.
+              </p>
+              <textarea
+                id="resume-text"
+                className="resume-editor-textarea"
+                value={resumeText}
+                onChange={(event) => setResumeText(event.target.value)}
+              />
+              <div className="resume-actions">
+                <button
+                  className="upload-button"
+                  onClick={handleSaveResumeText}
+                  disabled={saving}
+                  type="button"
+                >
+                  {saving ? 'Saving...' : 'Save Resume Text'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

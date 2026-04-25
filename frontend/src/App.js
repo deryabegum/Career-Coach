@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import './App.css';
+import { clearDashboardCache } from './utils/dashboardCache';
 import Dashboard from './components/Dashboard';
 import Resume from './components/Resume';
 import MockInterview from './MockInterview';
@@ -8,7 +10,8 @@ import './Auth.css';
 import Login from './components/Login';
 import Register from './components/Register';
 import AccountSettings from './components/AccountSettings';
-import CareerHub from './components/CareerHub';   // <-- NEW
+import CareerHub from './components/CareerHub';
+import Applications from './components/Applications';
 
 function App() {
   // Add state for the token
@@ -17,13 +20,13 @@ function App() {
   // Default page is 'login' if no token, 'dashboard' if there is one
   const [currentPage, setCurrentPage] = useState(token ? 'dashboard' : 'login');
 
-  // Logout function
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
+    clearDashboardCache();
     localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
     setToken(null);
     setCurrentPage('login');
-  };
+  }, []);
 
   useEffect(() => {
     const handleAuthExpired = () => {
@@ -39,6 +42,7 @@ function App() {
 
   const renderContent = () => {
     // If user is not logged in, only show login/register
+  const mainContent = useMemo(() => {
     if (!token) {
       if (currentPage === 'login') {
         return <Login setToken={setToken} setCurrentPage={setCurrentPage} />;
@@ -46,22 +50,21 @@ function App() {
       if (currentPage === 'register') {
         return <Register setCurrentPage={setCurrentPage} />;
       }
-      // Fallback for any weird state
       return <Login setToken={setToken} setCurrentPage={setCurrentPage} />;
     }
 
-    // If user IS logged in, show app pages
-    if (currentPage === 'dashboard')
+    if (currentPage === 'dashboard') {
       return <Dashboard setCurrentPage={setCurrentPage} />;
+    }
     if (currentPage === 'resume') return <Resume />;
     if (currentPage === 'interview') return <MockInterview />;
     if (currentPage === 'job-match') return <JobMatch />;
-    if (currentPage === 'career-hub') return <CareerHub />;           // <-- NEW
+    if (currentPage === 'career-hub') return <CareerHub />;
+    if (currentPage === 'applications') return <Applications />;
     if (currentPage === 'account-settings') return <AccountSettings />;
 
-    // Fallback if logged in but page state is weird
     return <Dashboard setCurrentPage={setCurrentPage} />;
-  };
+  }, [token, currentPage]);
 
   return (
     <div className="App">
@@ -114,6 +117,14 @@ function App() {
               </button>
               <button
                 className={
+                  currentPage === 'applications' ? 'nav-link active' : 'nav-link'
+                }
+                onClick={() => setCurrentPage('applications')}
+              >
+                Applications
+              </button>
+              <button
+                className={
                   currentPage === 'account-settings'
                     ? 'nav-link active'
                     : 'nav-link'
@@ -150,7 +161,7 @@ function App() {
         </div>
       </nav>
 
-      <div className="content">{renderContent()}</div>
+      <div className="content">{mainContent}</div>
     </div>
   );
 }

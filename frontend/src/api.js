@@ -86,6 +86,11 @@ export const api = {
     request(`/api/resume/${resumeId}`, {
       method: 'DELETE',
     }),
+  updateResumeFields: (resumeId, extractedData) =>
+    request(`/api/resume/${resumeId}/fields`, {
+      method: 'PATCH',
+      body: JSON.stringify({ extracted_data: extractedData }),
+    }),
 
   // Auth
   register: (data) =>
@@ -132,6 +137,26 @@ export const api = {
     ),
   getJobDetails: (simplifyUrl) =>
     request(`/api/keywords/jobs/details?simplify_url=${encodeURIComponent(simplifyUrl)}`),
+
+  getInterviewSession: (sessionId) =>
+    request(`/api/v1/mock-interview/sessions/${sessionId}`),
+
+  // Job Applications endpoints
+  getApplications: () => request('/api/v1/applications/'),
+  createApplication: (data) =>
+    request('/api/v1/applications/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  updateApplication: (id, data) =>
+    request(`/api/v1/applications/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  deleteApplication: (id) =>
+    request(`/api/v1/applications/${id}`, {
+      method: 'DELETE',
+    }),
 
   // Career Resources endpoints
   getAllResources: () => request('/api/v1/resources'),

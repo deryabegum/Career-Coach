@@ -615,6 +615,286 @@
   }
 }
 
+/* Editor Tabs */
+.editor-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 0;
+}
+
+.editor-tab {
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: #AAAAAA;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 0.65rem 1.25rem;
+  transition: color 0.2s ease, border-color 0.2s ease;
+  margin-bottom: -1px;
+}
+
+.editor-tab:hover {
+  color: #FFFFFF;
+}
+
+.editor-tab.active {
+  color: #FF8C00;
+  border-bottom-color: #FF8C00;
+}
+
+/* Fields Editor */
+.fields-editor {
+  margin-top: 1.5rem;
+}
+
+.fields-section {
+  margin-bottom: 1.75rem;
+}
+
+.fields-section-title {
+  color: #FFB347;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin: 0 0 0.75rem;
+}
+
+.field-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.field-row:last-child {
+  border-bottom: none;
+}
+
+.field-label {
+  width: 80px;
+  flex-shrink: 0;
+  color: #AAAAAA;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.field-input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  color: #FFFFFF;
+  font: inherit;
+  font-size: 0.95rem;
+  padding: 0.55rem 0.85rem;
+  transition: border-color 0.2s ease;
+}
+
+.field-input:focus {
+  outline: none;
+  border-color: rgba(255, 140, 0, 0.6);
+}
+
+.field-textarea {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  color: #FFFFFF;
+  font: inherit;
+  font-size: 0.95rem;
+  padding: 0.75rem;
+  resize: vertical;
+  transition: border-color 0.2s ease;
+  box-sizing: border-box;
+}
+
+.field-textarea:focus {
+  outline: none;
+  border-color: rgba(255, 140, 0, 0.6);
+}
+
+/* Skills Tags */
+.skills-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.skill-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(255, 140, 0, 0.12);
+  border: 1px solid rgba(255, 140, 0, 0.35);
+  border-radius: 999px;
+  color: #FFB347;
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0.3rem 0.75rem 0.3rem 0.85rem;
+}
+
+.skill-tag-remove {
+  background: none;
+  border: none;
+  color: rgba(255, 140, 0, 0.6);
+  cursor: pointer;
+  font-size: 0.75rem;
+  line-height: 1;
+  padding: 0;
+  transition: color 0.15s ease;
+}
+
+.skill-tag-remove:hover {
+  color: #ff6b6b;
+}
+
+.skill-add-input {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  color: #FFFFFF;
+  font: inherit;
+  font-size: 0.875rem;
+  padding: 0.3rem 0.85rem;
+  width: 130px;
+  transition: border-color 0.2s ease;
+}
+
+.skill-add-input::placeholder {
+  color: #666;
+}
+
+.skill-add-input:focus {
+  outline: none;
+  border-color: rgba(255, 140, 0, 0.5);
+  border-style: solid;
+}
+
+/* Entry Cards (Work Experience / Education) */
+.entry-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  margin-bottom: 0.75rem;
+  overflow: hidden;
+}
+
+.entry-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1rem 1.1rem;
+}
+
+.entry-info {
+  flex: 1;
+}
+
+.entry-title {
+  color: #FFFFFF;
+  font-size: 0.95rem;
+}
+
+.entry-sub {
+  color: #AAAAAA;
+  font-size: 0.875rem;
+}
+
+.entry-dates-text {
+  color: #888;
+  font-size: 0.8rem;
+  margin-top: 0.2rem;
+}
+
+.entry-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 1rem 1.1rem;
+}
+
+.entry-dates-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+}
+
+.entry-form .field-input {
+  flex: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.entry-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  color: #FFFFFF;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0.45rem 1rem;
+  transition: background 0.2s ease, border-color 0.2s ease;
+  flex-shrink: 0;
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 140, 0, 0.15);
+  border-color: rgba(255, 140, 0, 0.4);
+}
+
+.btn-danger-sm {
+  background: rgba(255, 107, 107, 0.1);
+  border: 1px solid rgba(255, 107, 107, 0.25);
+  border-radius: 8px;
+  color: #ff6b6b;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0.45rem 1rem;
+  transition: background 0.2s ease;
+}
+
+.btn-danger-sm:hover {
+  background: rgba(255, 107, 107, 0.2);
+}
+
+.btn-add-entry {
+  background: none;
+  border: 1px dashed rgba(255, 140, 0, 0.35);
+  border-radius: 10px;
+  color: #FF8C00;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0.6rem 1.2rem;
+  transition: background 0.2s ease, border-color 0.2s ease;
+  width: 100%;
+}
+
+.btn-add-entry:hover {
+  background: rgba(255, 140, 0, 0.08);
+  border-color: rgba(255, 140, 0, 0.6);
+}
+
 /* Focus States for Accessibility */
 .upload-button:focus,
 .view-button:focus,

@@ -1,6 +1,6 @@
 // test
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Timer, ChevronLeft, ChevronRight, Play, Pause, RefreshCw, Send, Sparkles, CheckCircle2, XCircle, BookOpenText, ListChecks, Download, Mic, MicOff } from "lucide-react";
+import { Timer, ChevronLeft, ChevronRight, Play, Pause, RefreshCw, Send, Sparkles, CheckCircle2, XCircle, BookOpenText, ListChecks, Download, Mic, MicOff, History, X } from "lucide-react";
 import { api } from "./api";
 import "./MockInterview.css";
 import jsPDF from "jspdf";
@@ -92,6 +92,13 @@ export default function MockInterviewPage() {
   const [apiError, setApiError] = useState(null);
   const [micPermissionStatus, setMicPermissionStatus] = useState(null); // null, 'granted', 'denied', 'prompt'
   const [micError, setMicError] = useState(null);
+
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historySessions, setHistorySessions] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState(null);
+  const [historyDetail, setHistoryDetail] = useState(null);
+  const [historyDetailLoading, setHistoryDetailLoading] = useState(false);
 
   const timerRef = useRef(null);
   const activeQuestions = Array.isArray(questions) && questions.length ? questions : SAMPLE_QUESTIONS;
@@ -247,6 +254,46 @@ export default function MockInterviewPage() {
     setSessionId(null);
     setQuestions(generateLocalQuestionSet(role, company, DEFAULT_QUESTION_COUNT));
   };
+
+  const closeHistory = useCallback(() => {
+    setHistoryOpen(false);
+    setHistoryDetail(null);
+    setHistoryError(null);
+  }, []);
+
+  const loadPastSessions = useCallback(async () => {
+    setHistoryLoading(true);
+    setHistoryError(null);
+    setHistoryDetail(null);
+    try {
+      const data = await api.getUserSessions();
+      setHistorySessions(Array.isArray(data.sessions) ? data.sessions : []);
+    } catch (e) {
+      setHistorySessions([]);
+      setHistoryError(e.message || "Could not load past sessions.");
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
+  const openHistory = useCallback(() => {
+    setHistoryOpen(true);
+    loadPastSessions();
+  }, [loadPastSessions]);
+
+  const openHistorySession = useCallback(async (sessionId) => {
+    setHistoryDetailLoading(true);
+    setHistoryError(null);
+    try {
+      const detail = await api.getInterviewSession(sessionId);
+      setHistoryDetail(detail);
+    } catch (e) {
+      setHistoryDetail(null);
+      setHistoryError(e.message || "Could not load this session.");
+    } finally {
+      setHistoryDetailLoading(false);
+    }
+  }, []);
 
   const answeredCount = useMemo(
     () => Object.values(answers).filter((v) => (v ?? "").trim().length > 0).length,
@@ -595,7 +642,10 @@ export default function MockInterviewPage() {
           <h1>Mock Interview</h1>
           <p>Practice behavioral & role-specific questions with a timed flow and instant feedback.</p>
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center', justifyContent: 'flex-end' }}>
+          <button type="button" className="button outline" onClick={openHistory} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+            <History size={16} /> Past sessions
+          </button>
           <span className="badge">{answeredCount}/{activeQuestions.length} answered</span>
           <span className={`badge ${reviewMode ? 'primary' : ''}`}>{reviewMode ? "Review" : "Practice"}</span>
         </div>
@@ -656,6 +706,25 @@ export default function MockInterviewPage() {
               <span>Microphone access granted</span>
             </div>
           )}
+          <div className="card" style={{ marginTop: '1.25rem' }}>
+            <div className="card-header">
+              <h3 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <History size={18} /> Past sessions
+              </h3>
+              <p className="card-description">
+                Reopen transcripts and AI feedback from interviews you submitted (saved on your account).
+              </p>
+            </div>
+            <div className="card-footer" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
+              <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--mi-text-soft, #aaa)' }}>
+                Sessions are listed after you use &quot;Submit for evaluation&quot; while logged in.
+              </p>
+              <button type="button" className="button secondary" onClick={openHistory}>
+                <History size={16} style={{ marginRight: '0.5rem' }} />
+                View history
+              </button>
+            </div>
+          </div>
         </div>
       ) : (
         <div className="grid-2-col">
@@ -820,8 +889,145 @@ export default function MockInterviewPage() {
           </div>
         </div>
       )}
+
+      {historyOpen && (
+        <div
+          className="mi-history-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="mi-history-title"
+        >
+          <button
+            type="button"
+            className="mi-history-backdrop"
+            aria-label="Close history"
+            onClick={closeHistory}
+          />
+          <div className="mi-history-panel">
+            <div className="mi-history-panel-header">
+              <h2 id="mi-history-title" className="mi-history-title">
+                {historyDetail ? "Session detail" : "Past interview sessions"}
+              </h2>
+              <button
+                type="button"
+                className="icon-button"
+                onClick={closeHistory}
+                aria-label="Close"
+              >
+                <X size={22} />
+              </button>
+            </div>
+
+            {historyDetailLoading && (
+              <p className="mi-history-muted">Loading session…</p>
+            )}
+
+            {!historyDetailLoading && historyDetail && (
+              <div className="mi-history-detail">
+                <button
+                  type="button"
+                  className="button outline"
+                  style={{ marginBottom: "1rem", display: "inline-flex", alignItems: "center", gap: "0.35rem" }}
+                  onClick={() => {
+                    setHistoryDetail(null);
+                    setHistoryError(null);
+                  }}
+                >
+                  <ChevronLeft size={16} /> Back to list
+                </button>
+                <div className="mi-history-meta">
+                  <p><strong>Role</strong> · {historyDetail.role}</p>
+                  <p><strong>Company</strong> · {historyDetail.company}</p>
+                  <p><strong>Started</strong> · {formatSessionWhen(historyDetail.created_at)}</p>
+                  {historyDetail.submitted_at && (
+                    <p><strong>Submitted</strong> · {formatSessionWhen(historyDetail.submitted_at)}</p>
+                  )}
+                  {historyDetail.average_score != null && (
+                    <p><strong>Average score</strong> · {Math.round(Number(historyDetail.average_score))}/100</p>
+                  )}
+                </div>
+                {(!historyDetail.items || historyDetail.items.length === 0) && (
+                  <p className="mi-history-muted">No answers were saved for this session yet.</p>
+                )}
+                <div className="mi-history-items">
+                  {(historyDetail.items || []).map((row, idx) => (
+                    <div key={`${row.qid}-${idx}`} className="mi-history-item card">
+                      <div className="card-header">
+                        <h3 className="card-title">Question {idx + 1}</h3>
+                      </div>
+                      <div className="card-content">
+                        <p style={{ fontSize: "0.95rem", lineHeight: 1.6, marginBottom: "0.75rem" }}>{row.prompt}</p>
+                        <p style={{ fontSize: "0.8125rem", color: "var(--mi-text-soft, #aaa)", marginBottom: "0.35rem" }}>Your answer</p>
+                        <p style={{ fontSize: "0.9rem", lineHeight: 1.55, whiteSpace: "pre-wrap" }}>{row.answer || "(No answer)"}</p>
+                      </div>
+                      {row.feedback && Object.keys(row.feedback).length > 0 && (
+                        <div className="card-content" style={{ borderTop: "1px solid var(--mi-border, rgba(255,255,255,0.1))" }}>
+                          <FeedbackBox data={row.feedback} />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {!historyDetailLoading && !historyDetail && (
+              <>
+                {historyLoading && <p className="mi-history-muted">Loading your sessions…</p>}
+                {historyError && (
+                  <div className="mi-history-error" role="alert">{historyError}</div>
+                )}
+                {!historyLoading && !historyError && historySessions.length === 0 && (
+                  <p className="mi-history-muted">
+                    No sessions yet. Start a practice run, answer the questions, then choose <strong>Submit for evaluation</strong> while logged in to save transcripts and feedback here.
+                  </p>
+                )}
+                {!historyLoading && historySessions.length > 0 && (
+                  <ul className="mi-history-list">
+                    {historySessions.map((s) => (
+                      <li key={s.id}>
+                        <button
+                          type="button"
+                          className="mi-history-row"
+                          onClick={() => openHistorySession(s.id)}
+                        >
+                          <div className="mi-history-row-main">
+                            <span className="mi-history-row-title">{s.role} · {s.company}</span>
+                            <span className="mi-history-row-sub">
+                              {formatSessionWhen(s.created_at)}
+                              {s.submitted_at ? " · Evaluated" : s.answer_count ? ` · ${s.answer_count} answer(s) saved` : ""}
+                            </span>
+                          </div>
+                          {s.average_score != null && (
+                            <span className="mi-history-row-score">{Math.round(Number(s.average_score))}/100</span>
+                          )}
+                          <ChevronRight size={18} className="mi-history-row-chevron" aria-hidden />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
+}
+
+function formatSessionWhen(iso) {
+  if (!iso) return "—";
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return String(iso);
+    return d.toLocaleString(undefined, {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+  } catch {
+    return String(iso);
+  }
 }
 
 function formatTime(s) {
