@@ -136,11 +136,23 @@ export default function Applications() {
 
   return (
     <div className="apps-container">
+      <div className="apps-main-card">
       <header className="apps-header">
         <div>
           <h1>My Applications</h1>
           <p>Track every job application in one place.</p>
         </div>
+        <span className="apps-count-badge">{apps.length} tracked</span>
+      </header>
+
+      <div className="apps-controls">
+        <input
+          type="text"
+          placeholder="Search by company, field, or stage..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="apps-search-input"
+        />
         <button
           className="apps-add-btn"
           onClick={() => {
@@ -150,16 +162,6 @@ export default function Applications() {
         >
           {showForm ? '✕ Cancel' : '+ New Application'}
         </button>
-      </header>
-
-      <div className="apps-search-bar">
-        <input
-          type="text"
-          placeholder="Search by company, field, or stage..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="apps-search-input"
-        />
       </div>
 
       {showForm && (
@@ -305,6 +307,7 @@ export default function Applications() {
           })}
         </div>
       )}
+      </div>
     </div>
   );
 }
