@@ -103,21 +103,45 @@ function Dashboard({ setCurrentPage }) {
           throw new Error('No token found. Please log in.');
         }
 
-        const data = await api.getDashboardSummary();
-        if (!alive) return;
+        // 2. Build headers with Authorization
+        const headers = new Headers();
+        headers.append('Authorization', `Bearer ${token}`);
 
-        writeDashboardCache(data);
-        setUserStats(mapSummaryToStats(data));
-        setErr('');
-        setLoading(false);
-      } catch (e) {
-        if (!alive) return;
+        // 3. Request dashboard summary with headers
+        const res = await fetch('/api/v1/dashboard/summary', { 
+          headers,
+          method: 'GET',
+          credentials: 'include',
+        });
+
+        // 4. Handle invalid/expired sessions with auto-logout
+        if (res.status === 401 || res.status === 422) {
+          let body = {};
+          try {
+            body = await res.json();
+          } catch {
+            body = {};
+          }
+
+          if (body.msg === 'token_expired' || body.error === 'Token has expired') {
+            if (alive) {
+              setErr('Your session has expired. Please log in again.');
+            }
+          } else {
+            if (alive) {
+              setErr('Your session is invalid. Please log in again.');
+            }
+          }
 
         if (e.status === 401) {
           localStorage.removeItem('token');
           localStorage.removeItem('refreshToken');
-          setLoading(false);
-          setCurrentPage('login');
+          window.dispatchEvent(new Event('auth:expired'));
+
+          if (alive) {
+            setLoading(false);
+            setCurrentPage('login');
+          }
           return;
         }
 

@@ -408,22 +408,44 @@ const Resume = () => {
             </div>
           </div>
 
-          {/* Tabs */}
-          <div className="editor-tabs">
-            <button
-              type="button"
-              className={`editor-tab${activeTab === 'fields' ? ' active' : ''}`}
-              onClick={() => setActiveTab('fields')}
-            >
-              Parsed Fields
-            </button>
-            <button
-              type="button"
-              className={`editor-tab${activeTab === 'raw' ? ' active' : ''}`}
-              onClick={() => setActiveTab('raw')}
-            >
-              Raw Text
-            </button>
+          <div className="resume-feedback-card">
+            <h4>What&apos;s Lacking</h4>
+            {(activeResume.resumeDetails?.suggestions || []).length > 0 ? (
+              <ul className="resume-feedback-list">
+                {activeResume.resumeDetails.suggestions.map((item, index) => (
+                  <li key={`${activeResume.id}-suggestion-${index}`}>{item}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="resume-feedback-empty">
+                No major gaps detected right now. Keep refining bullets and measurable impact.
+              </p>
+            )}
+          </div>
+
+          <div className="resume-editor-card">
+            <label htmlFor="resume-text" className="resume-editor-label">
+              Extracted Resume Text
+            </label>
+            <p className="resume-editor-help">
+              Edit the extracted version of your resume here so you can refine wording inside the app.
+            </p>
+            <textarea
+              id="resume-text"
+              className="resume-editor-textarea"
+              value={resumeText}
+              onChange={(event) => setResumeText(event.target.value)}
+            />
+            <div className="resume-actions">
+              <button
+                className="upload-button"
+                onClick={handleSaveResumeText}
+                disabled={saving}
+                type="button"
+              >
+                {saving ? 'Saving...' : 'Save Resume Text'}
+              </button>
+            </div>
           </div>
 
           {activeTab === 'fields' ? (

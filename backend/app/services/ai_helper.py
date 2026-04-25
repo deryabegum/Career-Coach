@@ -618,7 +618,7 @@ Resume text:
 
     def scoreResume(self, parsed_resume: dict) -> dict:
         """
-        Evaluate a resume and return a simple score payload for dashboard/report use.
+        Evaluate a resume with a weighted rule-based rubric for dashboard/report use.
         """
         sections = parsed_resume.get("sections") or []
         full_text = ""
@@ -633,60 +633,187 @@ Resume text:
                 "score": 0,
                 "summary": "Resume could not be evaluated because no text was extracted.",
                 "details": {
-                    "checks": {
-                        "has_email": False,
-                        "has_phone": False,
-                        "has_skills_section": False,
-                        "has_experience_section": False,
-                        "has_education_section": False,
-                        "has_project_section": False,
-                        "length_ok": False,
-                    }
+                    "word_count": 0,
+                    "metrics": {},
+                    "checks": {},
+                    "suggestions": [
+                        "Upload a readable PDF or DOCX so the resume text can be extracted.",
+                    ],
                 },
             }
 
         lowered = text.lower()
         word_count = len(text.split())
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        bullet_lines = [
+            line for line in lines
+            if line.startswith(("-", "*", "•")) or len(line) > 2 and line[:2] in {"- ", "* "}
+        ]
+        bullet_count = len(bullet_lines)
+
+        digit_count = sum(ch.isdigit() for ch in text)
         checks = {
             "has_email": "@" in text,
-            "has_phone": any(ch.isdigit() for ch in text) and sum(ch.isdigit() for ch in text) >= 10,
-            "has_skills_section": "skill" in lowered,
-            "has_experience_section": "experience" in lowered,
+            "has_phone": digit_count >= 10,
+            "has_skills_section": "skill" in lowered or "skills" in lowered,
+            "has_experience_section": "experience" in lowered or "work experience" in lowered,
             "has_education_section": "education" in lowered,
             "has_project_section": "project" in lowered or "projects" in lowered,
-            "length_ok": 200 <= word_count <= 900,
+            "has_summary_section": "summary" in lowered or "profile" in lowered,
+            "has_links": "linkedin.com" in lowered or "github.com" in lowered or "portfolio" in lowered,
+            "has_bullets": bullet_count >= 3,
+            "length_ok": 220 <= word_count <= 850,
+            "has_metrics": any(
+                token in lowered
+                for token in ["%", "percent", "improved", "reduced", "increased", "saved", "grew", "delivered", "$"]
+            ),
+            "has_action_verbs": any(
+                token in lowered
+                for token in [
+                    "built", "led", "created", "implemented", "designed", "developed", "launched",
+                    "optimized", "analyzed", "managed", "delivered", "improved", "automated",
+                ]
+            ),
+            "has_dates": any(month in lowered for month in [
+                "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"
+            ]) or "202" in text or "201" in text,
         }
 
-        score = 30
-        score += 10 if checks["has_email"] else 0
-        score += 10 if checks["has_phone"] else 0
-        score += 15 if checks["has_skills_section"] else 0
-        score += 15 if checks["has_experience_section"] else 0
-        score += 10 if checks["has_education_section"] else 0
-        score += 10 if checks["has_project_section"] else 0
-        score += 10 if checks["length_ok"] else 0
-        score = min(100, score)
+        filler_phrases = sum(
+            1 for phrase in ["responsible for", "worked on", "helped with", "various tasks", "team player"]
+            if phrase in lowered
+        )
+        action_verb_hits = sum(
+            lowered.count(token) for token in [
+                "built", "led", "created", "implemented", "designed", "developed", "launched",
+                "optimized", "analyzed", "managed", "delivered", "improved", "automated",
+            ]
+        )
+        metric_hits = sum(
+            lowered.count(token) for token in ["%", "percent", "improved", "reduced", "increased", "saved", "grew", "$", "kpi"]
+        )
+        contact_score = 0
+        contact_score += 5 if checks["has_email"] else 0
+        contact_score += 5 if checks["has_phone"] else 0
+        contact_score += 2 if checks["has_links"] else 0
+        contact_score = min(12, contact_score)
 
-        missing = []
+        section_score = 0
+        section_score += 6 if checks["has_experience_section"] else 0
+        section_score += 4 if checks["has_skills_section"] else 0
+        section_score += 3 if checks["has_education_section"] else 0
+        section_score += 3 if checks["has_project_section"] else 0
+        section_score += 2 if checks["has_summary_section"] else 0
+        section_score = min(18, section_score)
+
+        impact_score = 6
+        impact_score += min(8, metric_hits * 2)
+        impact_score += 4 if checks["has_project_section"] and checks["has_metrics"] else 0
+        impact_score += 2 if "result" in lowered or "outcome" in lowered else 0
+        impact_score = min(20, impact_score)
+
+        writing_score = 8
+        if 320 <= word_count <= 700:
+            writing_score += 4
+        elif 220 <= word_count < 320 or 700 < word_count <= 850:
+            writing_score += 2
+        if filler_phrases == 0:
+            writing_score += 2
+        if bullet_count >= 4:
+            writing_score += 2
+        writing_score = min(16, writing_score)
+
+        ats_score = 6
+        ats_score += 3 if checks["has_skills_section"] else 0
+        ats_score += 3 if checks["has_dates"] else 0
+        ats_score += 2 if checks["has_links"] else 0
+        ats_score += 2 if checks["has_bullets"] else 0
+        ats_score += 2 if checks["length_ok"] else 0
+        ats_score = min(16, ats_score)
+
+        clarity_score = 6
+        clarity_score += 4 if checks["has_bullets"] else 0
+        clarity_score += 3 if action_verb_hits >= 4 else 1 if action_verb_hits >= 2 else 0
+        clarity_score += 3 if metric_hits >= 2 else 1 if metric_hits >= 1 else 0
+        clarity_score -= 2 if filler_phrases >= 3 else 1 if filler_phrases >= 1 else 0
+        clarity_score = max(0, min(18, clarity_score))
+
+        score = round(contact_score + section_score + impact_score + writing_score + ats_score + clarity_score)
+        score = max(0, min(100, score))
+
+        metrics = {
+            "contact_info": {
+                "score": contact_score,
+                "max": 12,
+                "reason": "Checks for reachable contact details and professional links.",
+            },
+            "section_coverage": {
+                "score": section_score,
+                "max": 18,
+                "reason": "Checks for core resume sections like experience, skills, education, and projects.",
+            },
+            "impact": {
+                "score": impact_score,
+                "max": 20,
+                "reason": "Rewards measurable results, outcomes, and evidence of contribution.",
+            },
+            "writing_quality": {
+                "score": writing_score,
+                "max": 16,
+                "reason": "Rewards focused length, readable content, and concise phrasing.",
+            },
+            "ats_readiness": {
+                "score": ats_score,
+                "max": 16,
+                "reason": "Rewards machine-readable structure, dates, bullets, and relevant sections.",
+            },
+            "clarity_and_action": {
+                "score": clarity_score,
+                "max": 18,
+                "reason": "Rewards strong action verbs, bullet formatting, and specific accomplishment language.",
+            },
+        }
+
+        suggestions = []
         if not checks["has_skills_section"]:
-            missing.append("Add a dedicated skills section.")
+            suggestions.append("Add a dedicated skills section with tools, languages, and frameworks.")
         if not checks["has_experience_section"]:
-            missing.append("Include an experience section with concrete impact.")
+            suggestions.append("Include an experience section that shows ownership and outcomes.")
         if not checks["has_project_section"]:
-            missing.append("Include at least one project with measurable outcomes.")
+            suggestions.append("Add at least one project section with scope, tools, and measurable results.")
+        if not checks["has_metrics"]:
+            suggestions.append("Add measurable impact such as percentages, time saved, revenue, or scale.")
+        if not checks["has_action_verbs"]:
+            suggestions.append("Start bullets with stronger action verbs like built, led, improved, or automated.")
+        if not checks["has_bullets"]:
+            suggestions.append("Use bullet points to make accomplishments easier to scan.")
         if not checks["length_ok"]:
-            missing.append("Keep the resume content within a focused one-page to two-page range.")
+            suggestions.append("Keep the resume focused to roughly one page or a concise early-career two-page version.")
+        if filler_phrases >= 2:
+            suggestions.append("Replace generic phrases like 'responsible for' with concrete actions and outcomes.")
+        if not checks["has_links"]:
+            suggestions.append("Add a LinkedIn, GitHub, or portfolio link if relevant to your field.")
 
-        summary = "Resume evaluation completed."
-        if missing:
-            summary = "Resume evaluation completed with improvement opportunities."
+        if score >= 85:
+            summary = "Resume evaluation completed. The resume is strong, well-structured, and impact-oriented."
+        elif score >= 70:
+            summary = "Resume evaluation completed. The resume is solid, with a few opportunities to improve impact and clarity."
+        elif score >= 55:
+            summary = "Resume evaluation completed with improvement opportunities in structure, specificity, or measurable impact."
+        else:
+            summary = "Resume evaluation completed. The resume needs stronger structure, clearer accomplishments, and more evidence of impact."
 
         return {
             "score": score,
             "summary": summary,
             "details": {
                 "word_count": word_count,
+                "bullet_count": bullet_count,
+                "action_verb_hits": action_verb_hits,
+                "metric_hits": metric_hits,
+                "filler_phrase_hits": filler_phrases,
+                "metrics": metrics,
                 "checks": checks,
-                "suggestions": missing,
+                "suggestions": suggestions[:6],
             },
         }

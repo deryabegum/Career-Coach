@@ -1,3 +1,4 @@
+import React, { useEffect, useState } from 'react';
 import React, { useState, useMemo, useCallback } from 'react';
 import './App.css';
 import { clearDashboardCache } from './utils/dashboardCache';
@@ -22,10 +23,25 @@ function App() {
   const handleLogout = useCallback(() => {
     clearDashboardCache();
     localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
     setToken(null);
     setCurrentPage('login');
   }, []);
 
+  useEffect(() => {
+    const handleAuthExpired = () => {
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
+      setToken(null);
+      setCurrentPage('login');
+    };
+
+    window.addEventListener('auth:expired', handleAuthExpired);
+    return () => window.removeEventListener('auth:expired', handleAuthExpired);
+  }, []);
+
+  const renderContent = () => {
+    // If user is not logged in, only show login/register
   const mainContent = useMemo(() => {
     if (!token) {
       if (currentPage === 'login') {

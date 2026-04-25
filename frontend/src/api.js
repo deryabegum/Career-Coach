@@ -26,8 +26,21 @@ async function request(path, options = {}) {
       const data = JSON.parse(text);
       message = data.error || data.message || message;
     } catch {
-      if (text && text.length < 300) message = text;
+      const trimmed = (text || '').trim();
+      if (trimmed && !trimmed.startsWith('<') && trimmed.length < 300) {
+        message = trimmed;
+      } else if (res.status === 404) {
+        message = 'This feature is temporarily unavailable. Please refresh and try again.';
+      } else if (res.status >= 500) {
+        message = 'The server hit an error while processing your request.';
+      }
     }
+
+    if (res.status === 401 || res.status === 422) {
+      localStorage.removeItem('token');
+      window.dispatchEvent(new CustomEvent('auth:expired', { detail: { status: res.status } }));
+    }
+
     const err = new Error(message);
     err.status = res.status;
     throw err;
@@ -112,6 +125,18 @@ export const api = {
     }),
 
   getUserSessions: () => request('/api/v1/mock-interview/sessions'),
+  matchKeywords: (data) =>
+    request('/api/keywords/match', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  getNewGradJobs: ({ limit = 40, category = 'all', search = '' } = {}) =>
+    request(
+      `/api/keywords/jobs/new-grad?limit=${encodeURIComponent(limit)}&category=${encodeURIComponent(category)}&search=${encodeURIComponent(search)}`
+    ),
+  getJobDetails: (simplifyUrl) =>
+    request(`/api/keywords/jobs/details?simplify_url=${encodeURIComponent(simplifyUrl)}`),
 
   getInterviewSession: (sessionId) =>
     request(`/api/v1/mock-interview/sessions/${sessionId}`),
