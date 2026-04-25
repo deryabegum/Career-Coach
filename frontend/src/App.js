@@ -1,5 +1,4 @@
-import React, { useEffect, useState } from 'react';
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import './App.css';
 import { clearDashboardCache } from './utils/dashboardCache';
 import Dashboard from './components/Dashboard';
@@ -40,8 +39,6 @@ function App() {
     return () => window.removeEventListener('auth:expired', handleAuthExpired);
   }, []);
 
-  const renderContent = () => {
-    // If user is not logged in, only show login/register
   const mainContent = useMemo(() => {
     if (!token) {
       if (currentPage === 'login') {
@@ -67,6 +64,7 @@ function App() {
   }, [token, currentPage]);
 
   return (
+
     <div className="App">
       <nav className="navbar">
         <h1 className="app-title">AI Career Coach</h1>
