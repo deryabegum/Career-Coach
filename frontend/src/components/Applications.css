@@ -2,8 +2,21 @@
   max-width: 1100px;
   margin: 2rem auto;
   padding: 0 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
 }
 
+/* Main card wrapper — matches .job-feed-card */
+.apps-main-card {
+  background: #2C2C2C;
+  border: 1px solid rgba(255, 140, 0, 0.18);
+  border-radius: 24px;
+  padding: 2rem;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.18);
+}
+
+/* Header */
 .apps-header {
   display: flex;
   align-items: flex-start;
@@ -14,43 +27,43 @@
 }
 
 .apps-header h1 {
-  color: #f9fafb;
+  color: #FF8C00;
   margin: 0 0 0.25rem;
 }
 
 .apps-header p {
-  color: #9ca3af;
+  color: #BBBBBB;
   margin: 0;
   font-size: 0.9rem;
+  line-height: 1.6;
 }
 
-.apps-add-btn {
-  background: #FF8C00;
-  color: #fff;
-  border: none;
-  border-radius: 10px;
-  padding: 0.6rem 1.2rem;
-  font-size: 0.9rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s;
+/* Badge showing count — matches .job-feed-badge */
+.apps-count-badge {
+  background: rgba(255, 140, 0, 0.12);
+  border: 1px solid rgba(255, 140, 0, 0.25);
+  color: #FFB347;
+  border-radius: 999px;
+  padding: 0.55rem 0.9rem;
+  font-weight: 700;
   white-space: nowrap;
+  font-size: 0.85rem;
 }
 
-.apps-add-btn:hover {
-  background: #e07b00;
-}
-
-.apps-search-bar {
+/* Search + button controls — matches .job-feed-controls */
+.apps-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: center;
   margin-bottom: 1.5rem;
 }
 
 .apps-search-input {
   width: 100%;
-  max-width: 420px;
-  background: #111827;
-  border: 1px solid #374151;
-  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
   color: #f9fafb;
   padding: 0.7rem 0.9rem;
   font-size: 0.9rem;
@@ -67,11 +80,28 @@
   color: #6b7280;
 }
 
+.apps-add-btn {
+  background: #FF8C00;
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: 0.65rem 1.2rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+
+.apps-add-btn:hover {
+  background: #e07b00;
+}
+
 /* Form */
 .apps-form {
-  background: #111827;
-  border: 1px solid #1f2937;
-  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
   padding: 1.5rem;
   margin-bottom: 1.75rem;
 }
@@ -90,16 +120,16 @@
 }
 
 .apps-field label {
-  color: #9ca3af;
+  color: #BBBBBB;
   font-size: 0.8rem;
   font-weight: 500;
 }
 
 .apps-field input,
 .apps-field select {
-  background: #1f2937;
-  border: 1px solid #374151;
-  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
   color: #f9fafb;
   padding: 0.5rem 0.75rem;
   font-size: 0.9rem;
@@ -117,10 +147,13 @@
   color: #6b7280;
 }
 
-/* dark date picker icon */
 .apps-field input[type="date"]::-webkit-calendar-picker-indicator {
   filter: invert(0.6);
   cursor: pointer;
+}
+
+.apps-field select option {
+  background: #2C2C2C;
 }
 
 .apps-form-err {
@@ -133,8 +166,8 @@
   background: #FF8C00;
   color: #fff;
   border: none;
-  border-radius: 10px;
-  padding: 0.6rem 1.4rem;
+  border-radius: 12px;
+  padding: 0.65rem 1.4rem;
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
@@ -150,9 +183,9 @@
   cursor: not-allowed;
 }
 
-/* Status / empty */
+/* Status / empty — matches .job-feed-empty */
 .apps-status {
-  color: #9ca3af;
+  color: #BBBBBB;
 }
 
 .apps-error {
@@ -160,15 +193,14 @@
 }
 
 .apps-empty {
+  color: #BBBBBB;
+  padding: 1.5rem;
   text-align: center;
-  padding: 3rem 1rem;
-  color: #6b7280;
-  background: #111827;
-  border-radius: 14px;
-  border: 1px dashed #374151;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
 }
 
-/* Grouped layout */
+/* Groups */
 .apps-groups {
   display: flex;
   flex-direction: column;
@@ -197,34 +229,36 @@
 }
 
 .apps-group-count {
-  background: #1f2937;
-  color: #9ca3af;
-  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #F0F0F0;
+  border-radius: 999px;
   font-size: 0.75rem;
-  font-weight: 600;
-  padding: 0.1rem 0.55rem;
+  font-weight: 700;
+  padding: 0.2rem 0.6rem;
 }
 
-/* Cards grid */
+/* Cards grid — matches .job-grid */
 .apps-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 1rem;
 }
 
+/* Card — matches .job-card */
 .apps-card {
-  background: #111827;
-  border: 1px solid #1f2937;
-  border-radius: 14px;
-  padding: 1.25rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  padding: 1.2rem;
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: 0.9rem;
   transition: border-color 0.2s, transform 0.2s;
 }
 
 .apps-card:hover {
-  border-color: #374151;
+  border-color: rgba(255, 140, 0, 0.25);
   transform: translateY(-2px);
 }
 
@@ -235,11 +269,12 @@
   gap: 0.5rem;
 }
 
+/* Company name — matches .job-card-company */
 .apps-company {
-  color: #f9fafb;
+  color: #FFB347;
   margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: 0.95rem;
+  font-weight: 700;
   line-height: 1.3;
 }
 
@@ -260,66 +295,65 @@
   background: rgba(239, 68, 68, 0.1);
 }
 
+/* Field badge — matches .job-chip */
 .apps-field-badge {
   display: inline-block;
-  background: #1f2937;
-  color: #9ca3af;
-  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #F0F0F0;
+  border-radius: 999px;
   font-size: 0.75rem;
-  padding: 0.2rem 0.6rem;
-  font-weight: 500;
+  font-weight: 700;
+  padding: 0.3rem 0.6rem;
   width: fit-content;
 }
 
+/* Card meta — matches .job-card-meta */
 .apps-card-meta {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  flex-direction: column;
+  gap: 0.35rem;
+  color: #C8C8C8;
+  font-size: 0.92rem;
 }
 
 .apps-date {
-  color: #6b7280;
-  font-size: 0.8rem;
+  color: #C8C8C8;
+  font-size: 0.85rem;
 }
 
+/* Stage row */
 .apps-stage-row {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  margin-top: 0.25rem;
-  flex-wrap: wrap;
-}
-
-.apps-stage-badge {
-  display: inline-block;
-  border-radius: 20px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  padding: 0.2rem 0.75rem;
-  color: #fff;
-  letter-spacing: 0.01em;
-  flex-shrink: 0;
+  margin-top: auto;
 }
 
 .apps-stage-select {
-  background: #1f2937;
-  border: 1px solid #374151;
-  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
   color: #d1d5db;
   font-size: 0.78rem;
-  padding: 0.25rem 0.5rem;
+  padding: 0.3rem 0.5rem;
   cursor: pointer;
   outline: none;
   transition: border-color 0.2s;
+  appearance: none;
 }
 
 .apps-stage-select:focus {
   border-color: #FF8C00;
 }
 
-@media (max-width: 600px) {
-  .apps-search-input {
-    max-width: 100%;
+.apps-stage-select option {
+  background: #2C2C2C;
+}
+
+@media (max-width: 768px) {
+  .apps-controls {
+    grid-template-columns: 1fr;
   }
 
   .apps-form-grid {
