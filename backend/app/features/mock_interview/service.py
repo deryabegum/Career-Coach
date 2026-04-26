@@ -75,7 +75,20 @@ class MockInterviewDAO:
 
     def get_interview(self, interview_id: int):
         row = self.conn.execute(
-            "SELECT * FROM interviews WHERE id = ?",
+            """
+            SELECT
+              id,
+              user_id,
+              role,
+              company,
+              CAST(created_at AS TEXT) AS created_at,
+              CAST(submitted_at AS TEXT) AS submitted_at,
+              average_score,
+              total_score,
+              questions_json
+            FROM interviews
+            WHERE id = ?
+            """,
             (interview_id,),
         ).fetchone()
         return dict(row) if row else None
@@ -94,8 +107,8 @@ class MockInterviewDAO:
               i.id,
               i.role,
               i.company,
-              i.created_at,
-              i.submitted_at,
+              CAST(i.created_at AS TEXT) AS created_at,
+              CAST(i.submitted_at AS TEXT) AS submitted_at,
               i.average_score,
               i.total_score,
               (SELECT COUNT(*) FROM answers a WHERE a.interview_id = i.id) AS answer_count

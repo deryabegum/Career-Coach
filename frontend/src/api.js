@@ -160,15 +160,5 @@ export const api = {
 
   // Career Resources endpoints
   getAllResources: () => request('/api/v1/resources'),
-
-  // IMPORTANT: do NOT send Authorization header here
-  getRecommendedResources: async () => {
-    const res = await fetch(API_BASE + '/api/v1/resources/recommended');
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`HTTP ${res.status}: ${text || res.statusText}`);
-    }
-    const ct = res.headers.get('content-type') || '';
-    return ct.includes('application/json') ? res.json() : res.text();
-  },
+  getRecommendedResources: () => request('/api/v1/resources/recommended'),
 };

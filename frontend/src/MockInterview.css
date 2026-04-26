@@ -205,6 +205,20 @@
   resize: vertical;
 }
 
+.mock-interview-voice-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.9rem;
+}
+
+.mock-interview-voice-note {
+  color: var(--mi-text-soft, #aaaaaa);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
 .input::placeholder,
 .textarea::placeholder {
   color: #888888;

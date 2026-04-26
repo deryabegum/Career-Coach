@@ -73,6 +73,11 @@ function useLocalStorage(key, initialValue) {
 }
 
 export default function MockInterviewPage() {
+  const SpeechRecognition =
+    typeof window !== "undefined"
+      ? window.SpeechRecognition || window.webkitSpeechRecognition
+      : null;
+
   const [started, setStarted] = useLocalStorage("mi_started", false);
   const [role, setRole] = useLocalStorage("mi_role", "Software / Data / Intern");
   const [company, setCompany] = useLocalStorage("mi_company", "Company");
@@ -92,6 +97,9 @@ export default function MockInterviewPage() {
   const [apiError, setApiError] = useState(null);
   const [micPermissionStatus, setMicPermissionStatus] = useState(null); // null, 'granted', 'denied', 'prompt'
   const [micError, setMicError] = useState(null);
+  const [speechSupported] = useState(Boolean(SpeechRecognition));
+  const [isListening, setIsListening] = useState(false);
+  const [speechStatus, setSpeechStatus] = useState("");
 
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historySessions, setHistorySessions] = useState([]);
@@ -101,6 +109,8 @@ export default function MockInterviewPage() {
   const [historyDetailLoading, setHistoryDetailLoading] = useState(false);
 
   const timerRef = useRef(null);
+  const recognitionRef = useRef(null);
+  const dictatedTextRef = useRef("");
   const activeQuestions = Array.isArray(questions) && questions.length ? questions : SAMPLE_QUESTIONS;
   const current = activeQuestions[index] || activeQuestions[0];
   const progressValue = Math.round(((index + 1) / activeQuestions.length) * 100);
@@ -236,6 +246,93 @@ export default function MockInterviewPage() {
     setAnswers((prev) => ({ ...prev, [qid]: text }));
   };
 
+  const stopVoiceCapture = useCallback(() => {
+    if (recognitionRef.current) {
+      recognitionRef.current.onresult = null;
+      recognitionRef.current.onend = null;
+      recognitionRef.current.onerror = null;
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
+    }
+    setIsListening(false);
+  }, []);
+
+  const startVoiceCapture = useCallback(async () => {
+    if (!speechSupported) {
+      setMicError("Voice transcription is not supported in this browser.");
+      return;
+    }
+
+    if (micPermissionStatus !== "granted") {
+      const permissionGranted = await requestMicrophonePermission();
+      if (!permissionGranted) return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      const existingText = (answers[current.id] || "").trim();
+      dictatedTextRef.current = existingText ? `${existingText} ` : "";
+
+      recognition.lang = "en-US";
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+
+      recognition.onresult = (event) => {
+        let finalTranscript = "";
+        let interimTranscript = "";
+
+        for (let i = event.resultIndex; i < event.results.length; i += 1) {
+          const transcript = event.results[i][0]?.transcript || "";
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript;
+          } else {
+            interimTranscript += transcript;
+          }
+        }
+
+        const baseText = dictatedTextRef.current;
+        const finalText = `${baseText}${finalTranscript}${interimTranscript}`.replace(/\s+/g, " ").trim();
+        updateAnswer(current.id, finalText);
+
+        if (finalTranscript) {
+          dictatedTextRef.current = `${baseText}${finalTranscript}`.replace(/\s+/g, " ").trim() + " ";
+        }
+      };
+
+      recognition.onerror = (event) => {
+        console.error("Speech recognition error:", event);
+        setMicError(event.error === "not-allowed"
+          ? MIC_DENIED_MESSAGE
+          : "Voice transcription stopped unexpectedly.");
+        setSpeechStatus("");
+        setIsListening(false);
+      };
+
+      recognition.onend = () => {
+        recognitionRef.current = null;
+        setIsListening(false);
+        setSpeechStatus("");
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+      setIsListening(true);
+      setSpeechStatus("Listening… your answer will be transcribed into the box.");
+      setMicError(null);
+    } catch (error) {
+      console.error("Could not start speech recognition:", error);
+      setMicError("Could not start voice transcription in this browser.");
+    }
+  }, [
+    SpeechRecognition,
+    answers,
+    current,
+    micPermissionStatus,
+    requestMicrophonePermission,
+    speechSupported,
+  ]);
+
   const next = () => setIndex((i) => Math.min(i + 1, activeQuestions.length - 1));
   const prev = () => setIndex((i) => Math.max(i - 1, 0));
 
@@ -244,6 +341,7 @@ export default function MockInterviewPage() {
   };
 
   const resetAll = () => {
+    stopVoiceCapture();
     setStarted(false);
     setReviewMode(false);
     setIndex(0);
@@ -260,6 +358,12 @@ export default function MockInterviewPage() {
     setHistoryDetail(null);
     setHistoryError(null);
   }, []);
+
+  useEffect(() => {
+    return () => {
+      stopVoiceCapture();
+    };
+  }, [stopVoiceCapture]);
 
   const loadPastSessions = useCallback(async () => {
     setHistoryLoading(true);
@@ -382,7 +486,7 @@ export default function MockInterviewPage() {
     URL.revokeObjectURL(url);
   };
 
-  const downloadPDF = () => {
+  const downloadPDF = async () => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
@@ -390,7 +494,22 @@ export default function MockInterviewPage() {
     const maxWidth = pageWidth - 2 * margin;
     let yPosition = margin;
 
-    const resumeData = JSON.parse(localStorage.getItem("uploadedResume") || "null");
+    let resumeData = null;
+    try {
+      const resumeList = await api.listResumes();
+      const latestResume = (resumeList.resumes || [])[0];
+      if (latestResume?.id) {
+        const detail = await api.getResume(latestResume.id);
+        resumeData = {
+          name: latestResume.filename || latestResume.fileName || latestResume.name || "Resume",
+          uploadDate: latestResume.created_at || latestResume.createdAt || null,
+          score: detail?.resumeScore ?? latestResume.resumeScore ?? null,
+          summary: detail?.resumeSummary || latestResume.resumeSummary || null,
+        };
+      }
+    } catch (error) {
+      console.warn("Could not load latest resume details for report:", error);
+    }
 
     // Helper function to add a new page if needed
     const checkNewPage = (requiredHeight) => {
@@ -452,10 +571,15 @@ export default function MockInterviewPage() {
 
     if (resumeData) {
       addWrappedText(`File Name: ${resumeData.name || "N/A"}`, 10, false, [55, 65, 81]);
-      addWrappedText(`Size: ${resumeData.size || "N/A"}`, 10, false, [55, 65, 81]);
       addWrappedText(`Uploaded: ${resumeData.uploadDate || "N/A"}`, 10, false, [55, 65, 81]);
+      if (resumeData.score != null) {
+        addWrappedText(`Resume Score: ${resumeData.score}`, 10, false, [55, 65, 81]);
+      }
+      if (resumeData.summary) {
+        addWrappedText(`Summary: ${resumeData.summary}`, 10, false, [55, 65, 81]);
+      }
     } else {
-      addWrappedText("No resume uploaded.", 10, false, [55, 65, 81]);
+      addWrappedText("No saved resume was found in your account.", 10, false, [55, 65, 81]);
     }
 
     yPosition += 10;
@@ -770,6 +894,30 @@ export default function MockInterviewPage() {
                 <p className="card-description">Autosaves locally. Press <kbd className="shortcut-key">Ctrl</kbd> + <kbd className="shortcut-key">Enter</kbd> to go next.</p>
               </div>
               <div className="card-content">
+                <div className="mock-interview-voice-row">
+                  <button
+                    type="button"
+                    className={`button ${isListening ? "secondary" : "outline"}`}
+                    onClick={isListening ? stopVoiceCapture : startVoiceCapture}
+                  >
+                    {isListening ? (
+                      <>
+                        <MicOff size={16} style={{ marginRight: "0.5rem" }} />
+                        Stop voice capture
+                      </>
+                    ) : (
+                      <>
+                        <Mic size={16} style={{ marginRight: "0.5rem" }} />
+                        Speak answer
+                      </>
+                    )}
+                  </button>
+                  <span className="mock-interview-voice-note">
+                    {speechSupported
+                      ? (speechStatus || "Use your microphone to dictate your answer.")
+                      : "Voice transcription is not supported in this browser."}
+                  </span>
+                </div>
                 <textarea
                   className="textarea"
                   value={answers[current.id] || ""}

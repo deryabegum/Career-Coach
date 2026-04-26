@@ -14,14 +14,29 @@ import {
 import './Dashboard.css';
 
 function mapSummaryToStats(data) {
+  const points = data.points ?? 0;
+  const level = data.level ?? 1;
+  const currentLevelStartPoints = data.currentLevelStartPoints ?? Math.max(0, (level - 1) * 50);
+  const nextLevelPoints = data.nextLevelPoints ?? (level * 50);
+  const levelSpan = Math.max(1, nextLevelPoints - currentLevelStartPoints);
+  const derivedLevelProgressPct = Math.min(
+    100,
+    Math.max(0, Math.round(((points - currentLevelStartPoints) / levelSpan) * 100))
+  );
+  const derivedPointsToNextLevel = Math.max(0, nextLevelPoints - points);
+
   return {
     name: data.name ?? 'User',
     resumeScore: data.lastResumeScore ?? 0,
     interviewsCompleted: data.totals?.interviews ?? 0,
     jobMatches: data.totals?.matches ?? 0,
     resumeUploads: data.totals?.resumes ?? 0,
-    points: data.points ?? 0,
-    level: data.level ?? 1,
+    points,
+    level,
+    nextLevelPoints,
+    currentLevelStartPoints,
+    levelProgressPct: data.levelProgressPct ?? derivedLevelProgressPct,
+    pointsToNextLevel: data.pointsToNextLevel ?? derivedPointsToNextLevel,
     progressPct: data.progressPct ?? 0,
   };
 }
@@ -205,14 +220,19 @@ function Dashboard({ setCurrentPage }) {
     <div className="dashboard-container">
       <div className="welcome-section">
         <h1>Welcome back, {userStats.name}!</h1>
-        <p>Your career journey progress: {userStats.progressPct}%</p>
+        <p>
+          Progress to Level {userStats.level + 1}: {userStats.levelProgressPct}%
+        </p>
         <p>
           Level {userStats.level} · {userStats.points} points earned
+        </p>
+        <p>
+          {userStats.pointsToNextLevel} more points to reach Level {userStats.level + 1}
         </p>
         <div className="progress-bar">
           <div
             className="progress-fill"
-            style={{ width: `${userStats.progressPct}%` }}
+            style={{ width: `${userStats.levelProgressPct}%` }}
           />
         </div>
       </div>

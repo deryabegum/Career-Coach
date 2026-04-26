@@ -93,12 +93,22 @@ def build_summary(dao: 'DashboardDAO', user_id: int):
     try:
         progress = get_progress_payload(user_id)
         totals = dao.totals(user_id)
+        points = int(progress.get("points", 0))
+        level = int(progress.get("level", 1))
+        next_level_points = int(progress.get("next_level_points", level * 50))
+        current_level_start_points = max(0, (level - 1) * 50)
+        level_span = max(1, next_level_points - current_level_start_points)
+        level_progress_pct = min(
+            100,
+            max(0, round(((points - current_level_start_points) / level_span) * 100)),
+        )
+        points_to_next_level = max(0, next_level_points - points)
         progress_pct = min(
             100,
             totals["resumes"] * 25
             + totals["matches"] * 20
             + totals["interviews"] * 25
-            + min(int(progress.get("points", 0)), 30),
+            + min(points, 30),
         )
         return {
             "name": dao.user_name(user_id),
@@ -106,8 +116,12 @@ def build_summary(dao: 'DashboardDAO', user_id: int):
             "interviewAverage": dao.interview_average(user_id),
             "lastKeywordMatchScore": dao.last_keyword_match(user_id),
             "totals": totals,
-            "points": int(progress.get("points", 0)),
-            "level": int(progress.get("level", 1)),
+            "points": points,
+            "level": level,
+            "nextLevelPoints": next_level_points,
+            "currentLevelStartPoints": current_level_start_points,
+            "levelProgressPct": level_progress_pct,
+            "pointsToNextLevel": points_to_next_level,
             "progressPct": progress_pct,
             "updatedAt": datetime.now(timezone.utc).isoformat(),
         }
@@ -124,6 +138,10 @@ def build_summary(dao: 'DashboardDAO', user_id: int):
             },
             "points": 0,
             "level": 1,
+            "nextLevelPoints": 50,
+            "currentLevelStartPoints": 0,
+            "levelProgressPct": 0,
+            "pointsToNextLevel": 50,
             "progressPct": 0,
             "updatedAt": datetime.now(timezone.utc).isoformat(),
         }
