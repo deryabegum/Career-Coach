@@ -3,7 +3,7 @@ import './AccountSettings.css';
 
 const AccountSettings = () => {
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('••••••••');
+  const [password] = useState('••••••••');
 
   useEffect(() => {
     // Email'i localStorage'dan al veya placeholder göster
@@ -51,4 +51,3 @@ const AccountSettings = () => {
 };
 
 export default AccountSettings;
-

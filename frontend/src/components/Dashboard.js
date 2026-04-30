@@ -6,7 +6,6 @@ import React, {
   useRef,
   memo,
 } from 'react';
-import { api } from '../api';
 import {
   readDashboardCache,
   writeDashboardCache,
