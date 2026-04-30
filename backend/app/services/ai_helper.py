@@ -2,9 +2,13 @@ import os
 import fitz  # PyMuPDF
 import docx  # python-docx
 import json
-import google.generativeai as genai
 from flask import current_app
 from dotenv import load_dotenv
+
+try:
+    import google.generativeai as genai
+except ImportError:
+    genai = None
 
 # .env dosyasını yükle
 load_dotenv()
@@ -18,8 +22,8 @@ class AIHelper:
         # API anahtarını .env dosyasından al
         api_key = os.getenv("GOOGLE_API_KEY")
         self.model = None
-        
-        if api_key:
+
+        if api_key and genai is not None:
             try:
                 genai.configure(api_key=api_key)
                 
@@ -63,6 +67,8 @@ class AIHelper:
 
             except Exception as e:
                 print(f"❌ AI Client Init Error: {e}")
+        elif api_key and genai is None:
+            print("⚠️  google.generativeai is not installed. Local fallback logic will be used.")
         else:
             print("⚠️  UYARI: GOOGLE_API_KEY bulunamadı. Yerel mantık kullanılacak.")
 
