@@ -364,7 +364,7 @@ export default function MockInterviewPage() {
     setHistoryOpen(false);
     setHistoryDetail(null);
     setHistoryError(null);
-  }, [next, prev]);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -385,7 +385,7 @@ export default function MockInterviewPage() {
     } finally {
       setHistoryLoading(false);
     }
-  }, []);
+  }, [next, prev]);
 
   const openHistory = useCallback(() => {
     setHistoryOpen(true);
