@@ -1,5 +1,4 @@
-import React, { useEffect, useState } from 'react';
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import './App.css';
 import { clearDashboardCache } from './utils/dashboardCache';
 import Dashboard from './components/Dashboard';
@@ -14,10 +13,7 @@ import CareerHub from './components/CareerHub';
 import Applications from './components/Applications';
 
 function App() {
-  // Add state for the token
   const [token, setToken] = useState(localStorage.getItem('token'));
-
-  // Default page is 'login' if no token, 'dashboard' if there is one
   const [currentPage, setCurrentPage] = useState(token ? 'dashboard' : 'login');
 
   const handleLogout = useCallback(() => {
@@ -40,8 +36,6 @@ function App() {
     return () => window.removeEventListener('auth:expired', handleAuthExpired);
   }, []);
 
-  const renderContent = () => {
-    // If user is not logged in, only show login/register
   const mainContent = useMemo(() => {
     if (!token) {
       if (currentPage === 'login') {
@@ -64,7 +58,7 @@ function App() {
     if (currentPage === 'account-settings') return <AccountSettings />;
 
     return <Dashboard setCurrentPage={setCurrentPage} />;
-  }, [token, currentPage]);
+  }, [token, currentPage, setCurrentPage]);
 
   return (
     <div className="App">
