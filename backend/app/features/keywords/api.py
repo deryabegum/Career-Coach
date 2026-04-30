@@ -1,11 +1,8 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 import json
-import numpy as np
 import re
 import time
-from sklearn.feature_extraction.text import TfidfVectorizer, ENGLISH_STOP_WORDS
-from sklearn.metrics.pairwise import cosine_similarity
 from urllib.request import urlopen, Request
 from urllib.error import URLError
 from html import unescape
@@ -21,6 +18,14 @@ SIMPLIFY_README_URL = "https://raw.githubusercontent.com/SimplifyJobs/New-Grad-P
 JOBS_CACHE_TTL_SECONDS = 60 * 30
 _jobs_cache = {"jobs": [], "fetched_at": 0}
 SEMANTIC_MATCH_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+ENGLISH_STOP_WORDS = {
+    "a", "an", "and", "are", "as", "at", "be", "by", "for", "from", "has",
+    "he", "in", "is", "it", "its", "of", "on", "that", "the", "to", "was",
+    "were", "will", "with", "or", "this", "these", "those", "your", "you",
+    "our", "we", "they", "their", "them", "i", "me", "my", "mine", "but",
+    "if", "then", "than", "into", "over", "under", "after", "before", "up",
+    "down", "out", "about", "not", "no", "so", "too", "very", "can"
+}
 
 
 def _strip_html(text: str) -> str:
@@ -210,13 +215,22 @@ def _compute_hybrid_match(resume_text: str, job_description: str) -> dict:
     resume_inputs = resume_chunks or [resume_text]
     job_inputs = job_chunks or [job_description]
 
-    resume_embeddings = model.encode(resume_inputs, normalize_embeddings=True)
-    job_embeddings = model.encode(job_inputs, normalize_embeddings=True)
+    resume_embeddings = model.encode(resume_inputs, normalize_embeddings=True).tolist()
+    job_embeddings = model.encode(job_inputs, normalize_embeddings=True).tolist()
 
-    similarity_matrix = np.matmul(job_embeddings, resume_embeddings.T)
-    best_scores = similarity_matrix.max(axis=1) if similarity_matrix.size else np.array([0.0])
-    chunk_coverage = float(np.mean(best_scores >= 0.35)) if len(best_scores) else 0.0
-    semantic_score = float(np.mean(best_scores)) if len(best_scores) else 0.0
+    similarity_matrix = []
+    for job_vector in job_embeddings:
+        row = []
+        for resume_vector in resume_embeddings:
+            row.append(sum(a * b for a, b in zip(job_vector, resume_vector)))
+        similarity_matrix.append(row)
+
+    best_scores = [max(row) for row in similarity_matrix] if similarity_matrix else [0.0]
+    chunk_coverage = (
+        sum(1 for score in best_scores if score >= 0.35) / len(best_scores)
+        if best_scores else 0.0
+    )
+    semantic_score = sum(best_scores) / len(best_scores) if best_scores else 0.0
 
     # Keep some lexical grounding so users still get actionable keyword feedback.
     lexical_overlap = (
@@ -228,13 +242,21 @@ def _compute_hybrid_match(resume_text: str, job_description: str) -> dict:
     final_score = max(0.0, min(1.0, semantic_score * 0.7 + lexical_overlap * 0.3))
 
     top_matches = []
-    if similarity_matrix.size:
-        for job_idx in np.argsort(best_scores)[::-1][:3]:
-            resume_idx = int(np.argmax(similarity_matrix[job_idx]))
+    if similarity_matrix:
+        ranked_job_indices = sorted(
+            range(len(best_scores)),
+            key=lambda idx: best_scores[idx],
+            reverse=True,
+        )[:3]
+        for job_idx in ranked_job_indices:
+            resume_idx = max(
+                range(len(similarity_matrix[job_idx])),
+                key=lambda idx: similarity_matrix[job_idx][idx],
+            )
             top_matches.append({
-                "job_excerpt": job_inputs[int(job_idx)],
+                "job_excerpt": job_inputs[job_idx],
                 "resume_excerpt": resume_inputs[resume_idx],
-                "score": float(best_scores[int(job_idx)]),
+                "score": float(best_scores[job_idx]),
             })
 
     return {
@@ -270,6 +292,67 @@ def _load_new_grad_jobs(force_refresh: bool = False) -> list[dict]:
     _jobs_cache["jobs"] = jobs
     _jobs_cache["fetched_at"] = now
     return jobs
+
+
+def _compute_lightweight_match(resume_text: str, job_description: str) -> dict:
+    resume_keywords = _tokenize_keywords(resume_text)
+    jd_keywords = _tokenize_keywords(job_description)
+    shared_keywords = sorted(resume_keywords.intersection(jd_keywords))
+    missing_keywords = sorted(jd_keywords.difference(resume_keywords))
+
+    lexical_overlap = (
+        len(shared_keywords) / len(jd_keywords)
+        if jd_keywords else 0.0
+    )
+
+    resume_chunks = _split_text_chunks(resume_text, max_chunks=12) or [resume_text]
+    job_chunks = _split_text_chunks(job_description, max_chunks=12) or [job_description]
+
+    chunk_scores = []
+    top_matches = []
+    for job_chunk in job_chunks:
+        job_chunk_tokens = _tokenize_keywords(job_chunk)
+        best_score = 0.0
+        best_resume_chunk = resume_chunks[0] if resume_chunks else ""
+
+        for resume_chunk in resume_chunks:
+            resume_chunk_tokens = _tokenize_keywords(resume_chunk)
+            if not job_chunk_tokens:
+                score = 0.0
+            else:
+                score = len(job_chunk_tokens.intersection(resume_chunk_tokens)) / len(job_chunk_tokens)
+
+            if score > best_score:
+                best_score = score
+                best_resume_chunk = resume_chunk
+
+        chunk_scores.append(best_score)
+        top_matches.append({
+            "job_excerpt": job_chunk,
+            "resume_excerpt": best_resume_chunk,
+            "score": round(best_score, 4),
+        })
+
+    coverage_score = (
+        sum(1 for score in chunk_scores if score >= 0.35) / len(chunk_scores)
+        if chunk_scores else 0.0
+    )
+    semantic_score = sum(chunk_scores) / len(chunk_scores) if chunk_scores else lexical_overlap
+    final_score = max(0.0, min(1.0, semantic_score * 0.7 + lexical_overlap * 0.3))
+
+    top_matches = sorted(top_matches, key=lambda item: item["score"], reverse=True)[:3]
+
+    return {
+        "score": round(final_score, 4),
+        "semantic_score": round(semantic_score, 4),
+        "lexical_overlap": round(lexical_overlap, 4),
+        "coverage_score": round(coverage_score, 4),
+        "matched_keywords": shared_keywords[:30],
+        "missing_keywords": missing_keywords[:30],
+        "top_matches": top_matches,
+        "method": "lightweight-keyword-match",
+        "model": None,
+    }
 
 
 @bp.get("/jobs/new-grad")
@@ -401,39 +484,16 @@ def match_keywords():
         except Exception as e:
             return jsonify({"message": f"Error parsing resume JSON: {str(e)}"}), 500
 
-        # 5. Score the match using semantic embeddings first, with TF-IDF fallback.
-        method = "sentence-transformers-hybrid"
-        semantic_score = None
-        lexical_overlap = None
-        coverage_score = None
-        top_matches = []
-        model_name = None
-
-        try:
-            match_result = _compute_hybrid_match(resume_text, job_description)
-            score = float(match_result["score"])
-            semantic_score = float(match_result["semantic_score"])
-            lexical_overlap = float(match_result["lexical_overlap"])
-            coverage_score = float(match_result["coverage_score"])
-            matched_keywords = match_result["matched_keywords"]
-            missing_keywords = match_result["missing_keywords"]
-            top_matches = match_result["top_matches"]
-            model_name = match_result["model"]
-        except Exception:
-            corpus = [resume_text, job_description]
-            vectorizer = TfidfVectorizer(stop_words="english", lowercase=True)
-            tfidf_matrix = vectorizer.fit_transform(corpus)
-
-            score = float(cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])[0][0])
-
-            feature_names = np.array(vectorizer.get_feature_names_out())
-            resume_vec = tfidf_matrix[0].toarray().flatten()
-            jd_vec = tfidf_matrix[1].toarray().flatten()
-            resume_keywords = set(feature_names[resume_vec > 0.1])
-            jd_keywords = set(feature_names[jd_vec > 0.1])
-            matched_keywords = sorted(list(resume_keywords.intersection(jd_keywords)))
-            missing_keywords = sorted(list(jd_keywords.difference(resume_keywords)))
-            method = "tfidf-fallback"
+        match_result = _compute_lightweight_match(resume_text, job_description)
+        score = float(match_result["score"])
+        semantic_score = float(match_result["semantic_score"])
+        lexical_overlap = float(match_result["lexical_overlap"])
+        coverage_score = float(match_result["coverage_score"])
+        matched_keywords = match_result["matched_keywords"]
+        missing_keywords = match_result["missing_keywords"]
+        top_matches = match_result["top_matches"]
+        method = match_result["method"]
+        model_name = match_result["model"]
 
         # ✅ Award progress points based on improved "resume score" (0..100)
         award_resume_score(current_user_id, int(score * 100))
