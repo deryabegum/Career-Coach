@@ -385,7 +385,7 @@ export default function MockInterviewPage() {
     } finally {
       setHistoryLoading(false);
     }
-  }, [next, prev]);
+  }, []);
 
   const openHistory = useCallback(() => {
     setHistoryOpen(true);
@@ -404,7 +404,7 @@ export default function MockInterviewPage() {
     } finally {
       setHistoryDetailLoading(false);
     }
-  }, []);
+  }, [next, prev]);
 
   const answeredCount = useMemo(
     () => Object.values(answers).filter((v) => (v ?? "").trim().length > 0).length,
