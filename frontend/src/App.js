@@ -13,10 +13,7 @@ import CareerHub from './components/CareerHub';
 import Applications from './components/Applications';
 
 function App() {
-  // Add state for the token
   const [token, setToken] = useState(localStorage.getItem('token'));
-
-  // Default page is 'login' if no token, 'dashboard' if there is one
   const [currentPage, setCurrentPage] = useState(token ? 'dashboard' : 'login');
 
   const handleLogout = useCallback(() => {
@@ -61,7 +58,7 @@ function App() {
     if (currentPage === 'account-settings') return <AccountSettings />;
 
     return <Dashboard setCurrentPage={setCurrentPage} />;
-  }, [token, currentPage]);
+  }, [token, currentPage, setCurrentPage]);
 
   return (
 

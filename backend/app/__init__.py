@@ -9,6 +9,9 @@ from .extensions import bcrypt, jwt, limiter
 
 def create_app():
     app = Flask(__name__)
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    default_upload_dir = os.path.join(base_dir, "instance", "uploads")
+    default_database_path = os.path.join(base_dir, "instance", "app.db")
 
     # Fail loudly if a real secret has not been set in production
     _jwt_secret = os.environ.get("JWT_SECRET_KEY") or os.environ.get("SECRET_KEY")
@@ -25,18 +28,8 @@ def create_app():
         SECRET_KEY=os.environ.get("SECRET_KEY", "dev-change-me"),
         JWT_SECRET_KEY=_jwt_secret,
         MAX_CONTENT_LENGTH=10 * 1024 * 1024,  # 10MB
-        UPLOAD_FOLDER=os.path.join(
-            os.path.dirname(__file__),
-            "..",
-            "instance",
-            "uploads",
-        ),
-        DATABASE=os.path.join(
-            os.path.dirname(__file__),
-            "..",
-            "instance",
-            "app.db",
-        ),
+        UPLOAD_FOLDER=os.environ.get("UPLOAD_DIR", default_upload_dir),
+        DATABASE=os.environ.get("DATABASE_PATH", default_database_path),
         ALLOWED_EXTS={"pdf", "docx"},
         ALLOWED_MIMES={
             "application/pdf",
@@ -49,12 +42,28 @@ def create_app():
     )
 
     os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+    os.makedirs(os.path.dirname(app.config["DATABASE"]), exist_ok=True)
+
+    raw_cors_origins = os.environ.get("CORS_ORIGINS") or os.environ.get("FRONTEND_ORIGIN") or "*"
+    cors_origins = (
+        [origin.strip() for origin in raw_cors_origins.split(",") if origin.strip()]
+        if raw_cors_origins != "*"
+        else "*"
+    )
 
     # CORS and extensions
-    CORS(app, resources={r"/api/*": {"origins": "*", "supports_credentials": True}})
+    CORS(
+        app,
+        resources={r"/api/*": {"origins": cors_origins}},
+        supports_credentials=True,
+    )
     bcrypt.init_app(app)
     jwt.init_app(app)
     limiter.init_app(app)
+
+    @app.get("/health")
+    def health():
+        return jsonify({"status": "ok"}), 200
 
     # JWT Error Handlers
     @jwt.expired_token_loader
