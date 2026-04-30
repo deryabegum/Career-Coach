@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: career-coach-backend
+    env: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn wsgi:app
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.4
+      - key: SECRET_KEY
+        generateValue: true
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: DATABASE_PATH
+        value: /opt/render/project/src/backend/render-data/app.db
+      - key: UPLOAD_DIR
+        value: /opt/render/project/src/backend/render-data/uploads
+      - key: CORS_ORIGINS
+        sync: false
+    disk:
+      name: career-coach-data
+      mountPath: /opt/render/project/src/backend/render-data
+      sizeGB: 1
