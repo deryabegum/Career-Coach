@@ -404,7 +404,7 @@ export default function MockInterviewPage() {
     } finally {
       setHistoryDetailLoading(false);
     }
-  }, [next, prev]);
+  }, []);
 
   const answeredCount = useMemo(
     () => Object.values(answers).filter((v) => (v ?? "").trim().length > 0).length,
@@ -717,7 +717,7 @@ export default function MockInterviewPage() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [next, prev]);
 
   const loadingLabel = loadingPhase === "starting"
     ? "Starting session..."
