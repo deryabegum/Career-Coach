@@ -51,7 +51,7 @@ const Resume = () => {
   const [fileError, setFileError] = useState('');
   const [uploadError, setUploadError] = useState('');
   const [saveMessage, setSaveMessage] = useState('');
-  const [activeTab, setActiveTab] = useState('fields');
+  const [activeTab] = useState('fields');
 
   // Fields editor state
   const [fields, setFields] = useState(EMPTY_FIELDS);

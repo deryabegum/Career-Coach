@@ -242,9 +242,9 @@ export default function MockInterviewPage() {
     setRemaining(secondsPerQ);
   }, [index, secondsPerQ, setRemaining, started]);
 
-  const updateAnswer = (qid, text) => {
+  const updateAnswer = useCallback((qid, text) => {
     setAnswers((prev) => ({ ...prev, [qid]: text }));
-  };
+  }, [setAnswers]);
 
   const stopVoiceCapture = useCallback(() => {
     if (recognitionRef.current) {
@@ -331,10 +331,17 @@ export default function MockInterviewPage() {
     micPermissionStatus,
     requestMicrophonePermission,
     speechSupported,
+    updateAnswer,
   ]);
 
-  const next = () => setIndex((i) => Math.min(i + 1, activeQuestions.length - 1));
-  const prev = () => setIndex((i) => Math.max(i - 1, 0));
+  const next = useCallback(
+    () => setIndex((i) => Math.min(i + 1, activeQuestions.length - 1)),
+    [activeQuestions.length, setIndex]
+  );
+  const prev = useCallback(
+    () => setIndex((i) => Math.max(i - 1, 0)),
+    [setIndex]
+  );
 
   const jumpTo = (i) => {
     setIndex(i);
@@ -357,7 +364,7 @@ export default function MockInterviewPage() {
     setHistoryOpen(false);
     setHistoryDetail(null);
     setHistoryError(null);
-  }, []);
+  }, [next, prev]);
 
   useEffect(() => {
     return () => {
