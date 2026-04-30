@@ -173,26 +173,6 @@ function Dashboard({ setCurrentPage }) {
           }
           return;
         }
-
-        if (!res.ok) throw new Error(`Server error: ${res.status}`);
-
-        const data = await res.json();
-        writeDashboardCache(data);
-        if (alive) {
-          setUserStats(mapSummaryToStats(data));
-          setLoading(false);
-        }
-      } catch (e) {
-        if (e.status === 401) {
-          localStorage.removeItem('token');
-          localStorage.removeItem('refreshToken');
-          window.dispatchEvent(new Event('auth:expired'));
-          if (alive) {
-            setLoading(false);
-            setCurrentPage('login');
-          }
-          return;
-        }
         setLoading(false);
         if (hadBootstrapCacheRef.current) return;
         setErr(e.message || 'Failed to load dashboard');
