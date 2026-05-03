@@ -109,6 +109,14 @@ export default function Applications() {
   };
 
   const handleDelete = async (id) => {
+    const confirmed = window.confirm(
+      'Are you sure you want to delete this application?'
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
     try {
       await api.deleteApplication(id);
       setApps((prev) => prev.filter((a) => a.id !== id));
@@ -137,176 +145,176 @@ export default function Applications() {
   return (
     <div className="apps-container">
       <div className="apps-main-card">
-      <header className="apps-header">
-        <div>
-          <h1>My Applications</h1>
-          <p>Track every job application in one place.</p>
-        </div>
-        <span className="apps-count-badge">{apps.length} tracked</span>
-      </header>
-
-      <div className="apps-controls">
-        <input
-          type="text"
-          placeholder="Search by company, field, or stage..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="apps-search-input"
-        />
-        <button
-          className="apps-add-btn"
-          onClick={() => {
-            setShowForm((v) => !v);
-            setFormErr('');
-          }}
-        >
-          {showForm ? '✕ Cancel' : '+ New Application'}
-        </button>
-      </div>
-
-      {showForm && (
-        <form className="apps-form" onSubmit={handleAdd}>
-          <div className="apps-form-grid">
-            <div className="apps-field">
-              <label>Company Name *</label>
-              <input
-                name="company_name"
-                value={form.company_name}
-                onChange={handleFormChange}
-                placeholder="e.g. Google"
-              />
-            </div>
-
-            <div className="apps-field">
-              <label>Date Applied *</label>
-              <input
-                type="date"
-                name="applied_date"
-                value={form.applied_date}
-                onChange={handleFormChange}
-              />
-            </div>
-
-            <div className="apps-field">
-              <label>Stage</label>
-              <select
-                name="stage"
-                value={form.stage}
-                onChange={handleFormChange}
-              >
-                {STAGES.map((s) => (
-                  <option key={s.value} value={s.value}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="apps-field">
-              <label>Field / Area</label>
-              <input
-                name="field"
-                value={form.field}
-                onChange={handleFormChange}
-                placeholder="e.g. Software Engineering"
-              />
-            </div>
+        <header className="apps-header">
+          <div>
+            <h1>My Applications</h1>
+            <p>Track every job application in one place.</p>
           </div>
+          <span className="apps-count-badge">{apps.length} tracked</span>
+        </header>
 
-          {formErr && <p className="apps-form-err">{formErr}</p>}
-
-          <button type="submit" className="apps-submit-btn" disabled={saving}>
-            {saving ? 'Saving…' : 'Save Application'}
+        <div className="apps-controls">
+          <input
+            type="text"
+            placeholder="Search by company, field, or stage..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="apps-search-input"
+          />
+          <button
+            className="apps-add-btn"
+            onClick={() => {
+              setShowForm((v) => !v);
+              setFormErr('');
+            }}
+          >
+            {showForm ? '✕ Cancel' : '+ New Application'}
           </button>
-        </form>
-      )}
-
-      {loading && <p className="apps-status">Loading applications…</p>}
-      {err && <p className="apps-error">{err}</p>}
-
-      {!loading && !err && apps.length === 0 && (
-        <div className="apps-empty">
-          <p>No applications yet. Add your first one above!</p>
         </div>
-      )}
 
-      {!loading && !err && apps.length > 0 && filteredApps.length === 0 && (
-        <div className="apps-empty">
-          <p>No applications match your search.</p>
-        </div>
-      )}
-
-      {!loading && filteredApps.length > 0 && (
-        <div className="apps-groups">
-          {STAGES.map((stage) => {
-            const group = filteredApps.filter((a) => a.stage === stage.value);
-            if (group.length === 0) return null;
-
-            return (
-              <div key={stage.value} className="apps-group">
-                <div className="apps-group-header">
-                  <span
-                    className="apps-group-dot"
-                    style={{ background: STAGE_COLORS[stage.value] }}
-                  />
-                  <h2 className="apps-group-title">{stage.label}</h2>
-                  <span className="apps-group-count">{group.length}</span>
-                </div>
-
-                <div className="apps-grid">
-                  {group.map((app) => (
-                    <div key={app.id} className="apps-card">
-                      <div className="apps-card-top">
-                        <h3 className="apps-company">{app.company_name}</h3>
-                        <button
-                          className="apps-delete-btn"
-                          onClick={() => handleDelete(app.id)}
-                          title="Delete"
-                        >
-                          ✕
-                        </button>
-                      </div>
-
-                      {app.field && (
-                        <span className="apps-field-badge">{app.field}</span>
-                      )}
-
-                      <div className="apps-card-meta">
-                        <span className="apps-date">
-                          {new Date(app.applied_date).toLocaleDateString(
-                            'en-US',
-                            {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric',
-                            }
-                          )}
-                        </span>
-                      </div>
-
-                      <div className="apps-stage-row">
-                        <select
-                          className="apps-stage-select"
-                          value={app.stage}
-                          onChange={(e) =>
-                            handleStageChange(app, e.target.value)
-                          }
-                        >
-                          {STAGES.map((s) => (
-                            <option key={s.value} value={s.value}>
-                              {s.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+        {showForm && (
+          <form className="apps-form" onSubmit={handleAdd}>
+            <div className="apps-form-grid">
+              <div className="apps-field">
+                <label>Company Name *</label>
+                <input
+                  name="company_name"
+                  value={form.company_name}
+                  onChange={handleFormChange}
+                  placeholder="e.g. Google"
+                />
               </div>
-            );
-          })}
-        </div>
-      )}
+
+              <div className="apps-field">
+                <label>Date Applied *</label>
+                <input
+                  type="date"
+                  name="applied_date"
+                  value={form.applied_date}
+                  onChange={handleFormChange}
+                />
+              </div>
+
+              <div className="apps-field">
+                <label>Stage</label>
+                <select
+                  name="stage"
+                  value={form.stage}
+                  onChange={handleFormChange}
+                >
+                  {STAGES.map((s) => (
+                    <option key={s.value} value={s.value}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="apps-field">
+                <label>Field / Area</label>
+                <input
+                  name="field"
+                  value={form.field}
+                  onChange={handleFormChange}
+                  placeholder="e.g. Software Engineering"
+                />
+              </div>
+            </div>
+
+            {formErr && <p className="apps-form-err">{formErr}</p>}
+
+            <button type="submit" className="apps-submit-btn" disabled={saving}>
+              {saving ? 'Saving…' : 'Save Application'}
+            </button>
+          </form>
+        )}
+
+        {loading && <p className="apps-status">Loading applications…</p>}
+        {err && <p className="apps-error">{err}</p>}
+
+        {!loading && !err && apps.length === 0 && (
+          <div className="apps-empty">
+            <p>No applications yet. Add your first one above!</p>
+          </div>
+        )}
+
+        {!loading && !err && apps.length > 0 && filteredApps.length === 0 && (
+          <div className="apps-empty">
+            <p>No applications match your search.</p>
+          </div>
+        )}
+
+        {!loading && filteredApps.length > 0 && (
+          <div className="apps-groups">
+            {STAGES.map((stage) => {
+              const group = filteredApps.filter((a) => a.stage === stage.value);
+              if (group.length === 0) return null;
+
+              return (
+                <div key={stage.value} className="apps-group">
+                  <div className="apps-group-header">
+                    <span
+                      className="apps-group-dot"
+                      style={{ background: STAGE_COLORS[stage.value] }}
+                    />
+                    <h2 className="apps-group-title">{stage.label}</h2>
+                    <span className="apps-group-count">{group.length}</span>
+                  </div>
+
+                  <div className="apps-grid">
+                    {group.map((app) => (
+                      <div key={app.id} className="apps-card">
+                        <div className="apps-card-top">
+                          <h3 className="apps-company">{app.company_name}</h3>
+                          <button
+                            className="apps-delete-btn"
+                            onClick={() => handleDelete(app.id)}
+                            title="Delete"
+                          >
+                            ✕
+                          </button>
+                        </div>
+
+                        {app.field && (
+                          <span className="apps-field-badge">{app.field}</span>
+                        )}
+
+                        <div className="apps-card-meta">
+                          <span className="apps-date">
+                            {new Date(app.applied_date).toLocaleDateString(
+                              'en-US',
+                              {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                              }
+                            )}
+                          </span>
+                        </div>
+
+                        <div className="apps-stage-row">
+                          <select
+                            className="apps-stage-select"
+                            value={app.stage}
+                            onChange={(e) =>
+                              handleStageChange(app, e.target.value)
+                            }
+                          >
+                            {STAGES.map((s) => (
+                              <option key={s.value} value={s.value}>
+                                {s.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
