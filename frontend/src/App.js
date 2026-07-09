@@ -11,6 +11,7 @@ import Register from './components/Register';
 import AccountSettings from './components/AccountSettings';
 import CareerHub from './components/CareerHub';
 import Applications from './components/Applications';
+import CareerAgent from './components/CareerAgent';
 
 function App() {
   const [token, setToken] = useState(localStorage.getItem('token'));
@@ -53,6 +54,7 @@ function App() {
     if (currentPage === 'resume') return <Resume />;
     if (currentPage === 'interview') return <MockInterview />;
     if (currentPage === 'job-match') return <JobMatch />;
+    if (currentPage === 'career-agent') return <CareerAgent />;
     if (currentPage === 'career-hub') return <CareerHub />;
     if (currentPage === 'applications') return <Applications />;
     if (currentPage === 'account-settings') return <AccountSettings />;
@@ -101,6 +103,14 @@ function App() {
                 onClick={() => setCurrentPage('job-match')}
               >
                 Job Match
+              </button>
+              <button
+                className={
+                  currentPage === 'career-agent' ? 'nav-link active' : 'nav-link'
+                }
+                onClick={() => setCurrentPage('career-agent')}
+              >
+                Career Agent
               </button>
               <button
                 className={

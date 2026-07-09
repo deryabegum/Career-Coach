@@ -823,3 +823,164 @@ Resume text:
                 "suggestions": suggestions[:6],
             },
         }
+
+    def generateCoverLetter(
+        self,
+        extracted_data: dict,
+        role: str,
+        company: str,
+        job_description: str,
+        matched_keywords: list[str],
+        missing_keywords: list[str],
+    ) -> dict:
+        """
+        Generate a tailored cover letter grounded in the candidate's actual
+        resume data plus the strengths/gaps found during job matching.
+        """
+        extracted_data = extracted_data or {}
+        name = extracted_data.get("name") or "the candidate"
+        skills = extracted_data.get("skills") or []
+        work_experience = extracted_data.get("work_experience") or []
+        role_text = role or "the role"
+        company_text = company or "your company"
+
+        if self.model:
+            try:
+                prompt = f"""
+                Write a concise, specific, and honest cover letter for {name} applying to the
+                {role_text} role at {company_text}.
+
+                Candidate skills: {", ".join(skills[:15]) or "not specified"}
+                Candidate work experience: {json.dumps(work_experience[:3])}
+                Job description excerpt: {(job_description or "")[:1500]}
+                Keywords the candidate's resume already covers (lean on these): {", ".join(matched_keywords[:12]) or "none detected"}
+                Keywords missing from the resume (do NOT claim these as experience; at most acknowledge willingness to learn): {", ".join(missing_keywords[:8]) or "none"}
+
+                Requirements:
+                - 3 short paragraphs, no more than 220 words total.
+                - Open by naming the role and company.
+                - Ground every claim in the candidate's real skills/experience above. Never invent experience.
+                - Do not use generic filler like "team player" or "hard worker" without a concrete example.
+
+                Return ONLY a JSON object with these exact keys:
+                - cover_letter: the full letter as a single string with "\\n\\n" between paragraphs
+                - highlighted_strengths: an array of 2-3 short strings naming which real strengths were emphasized
+
+                Do not wrap the JSON in markdown code blocks.
+                """
+                response = self.model.generate_content(prompt)
+                content = self._clean_json_text(response.text)
+                parsed = json.loads(content)
+                letter = str(parsed.get("cover_letter", "")).strip()
+                if letter:
+                    strengths = parsed.get("highlighted_strengths")
+                    return {
+                        "cover_letter": letter,
+                        "highlighted_strengths": [str(s).strip() for s in strengths][:3]
+                        if isinstance(strengths, list) and strengths
+                        else matched_keywords[:3],
+                        "evaluator": {"provider": "gemini", "method": "llm_draft"},
+                    }
+            except Exception as e:
+                print(f"❌ Gemini Cover Letter Error: {e}. Falling back to template.")
+
+        return self._template_cover_letter(
+            name, skills, work_experience, role_text, company_text, matched_keywords
+        )
+
+    def _template_cover_letter(
+        self, name, skills, work_experience, role_text, company_text, matched_keywords
+    ) -> dict:
+        top_skills = matched_keywords[:3] or skills[:3]
+        recent_role = work_experience[0] if work_experience else None
+
+        opening = f"I am writing to apply for the {role_text} position at {company_text}."
+        if recent_role and recent_role.get("role"):
+            middle = (
+                f"In my role as {recent_role.get('role')} at {recent_role.get('company', 'my previous team')}, "
+                f"I built hands-on experience with {', '.join(top_skills) or 'the core skills this role requires'}. "
+                "I am confident that background translates directly into impact on your team."
+            )
+        else:
+            middle = (
+                f"My background includes {', '.join(top_skills) or 'skills directly relevant to this role'}, "
+                "which I am eager to bring to your team."
+            )
+        closing = (
+            f"I would welcome the opportunity to discuss how my experience can contribute to "
+            f"{company_text}'s goals. Thank you for your time and consideration."
+        )
+
+        return {
+            "cover_letter": "\n\n".join([opening, middle, closing]),
+            "highlighted_strengths": top_skills or ["Relevant technical background"],
+            "evaluator": {"provider": "heuristic", "method": "template"},
+        }
+
+    def generateInterviewPrepPlan(
+        self,
+        role: str,
+        company: str,
+        missing_keywords: list[str],
+        resume_score: int = 0,
+    ) -> dict:
+        """
+        Build a prioritized prep plan: focus areas derived from job-match gaps,
+        plus a fresh set of interview questions for the role.
+        """
+        top_gaps = (missing_keywords or [])[:5]
+        role_text = role or "this role"
+        company_text = company or "the company"
+
+        focus_areas = None
+        if self.model and top_gaps:
+            try:
+                prompt = f"""
+                A candidate is preparing for a {role_text} interview at {company_text}.
+                Their resume is missing these keywords found in the job description: {", ".join(top_gaps)}.
+
+                For each keyword, explain briefly why it likely matters to the interviewer and how the
+                candidate should prepare to address it (even if they lack direct professional experience).
+
+                Return ONLY a JSON array, one object per keyword, with these exact keys:
+                - keyword: the keyword
+                - why_it_matters: one short sentence
+                - how_to_prepare: one short, actionable sentence
+                """
+                response = self.model.generate_content(prompt)
+                content = self._clean_json_text(response.text)
+                parsed = json.loads(content)
+                if isinstance(parsed, list) and parsed:
+                    focus_areas = [
+                        {
+                            "keyword": str(item.get("keyword", "")).strip(),
+                            "why_it_matters": str(item.get("why_it_matters", "")).strip(),
+                            "how_to_prepare": str(item.get("how_to_prepare", "")).strip(),
+                        }
+                        for item in parsed
+                        if isinstance(item, dict) and item.get("keyword")
+                    ]
+            except Exception as e:
+                print(f"❌ Gemini Interview Prep Error: {e}. Falling back to template focus areas.")
+
+        if not focus_areas:
+            focus_areas = [
+                {
+                    "keyword": keyword,
+                    "why_it_matters": f"'{keyword}' appears in the job description but wasn't found in the resume, so interviewers may probe it directly.",
+                    "how_to_prepare": f"Prepare one concrete example (even academic or self-taught) showing exposure to {keyword}.",
+                }
+                for keyword in top_gaps
+            ]
+
+        question_count = 6 if resume_score and resume_score < 70 else 5
+        questions = self.generateInterviewQuestions(role_text, company_text, question_count)
+
+        return {
+            "focus_areas": focus_areas,
+            "questions": questions,
+            "evaluator": {
+                "provider": "gemini" if self.model and top_gaps else "heuristic",
+                "method": "llm_gap_analysis" if self.model and top_gaps else "template",
+            },
+        }
