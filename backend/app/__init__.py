@@ -123,6 +123,20 @@ def create_app():
                 created_at   TEXT    NOT NULL DEFAULT (datetime('now'))
             )
         """)
+        # Migration: ensure career_agent_runs table exists for existing databases
+        _db.execute("""
+            CREATE TABLE IF NOT EXISTS career_agent_runs (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                resume_id       INTEGER REFERENCES resumes(id),
+                role            TEXT    NOT NULL DEFAULT '',
+                company         TEXT    NOT NULL DEFAULT '',
+                job_description TEXT    NOT NULL DEFAULT '',
+                steps_json      TEXT    NOT NULL,
+                result_json     TEXT    NOT NULL,
+                created_at      TEXT    NOT NULL DEFAULT (datetime('now'))
+            )
+        """)
         _interview_cols = {
             row[1] for row in _db.execute("PRAGMA table_info(interviews)").fetchall()
         }
@@ -177,5 +191,9 @@ def create_app():
     # Job Applications routes (/api/v1/applications/*)
     from .features.job_applications.api import bp as applications_bp
     app.register_blueprint(applications_bp)
+
+    # Career Agent routes (/api/v1/career-agent/*)
+    from .features.career_agent.api import bp as career_agent_bp
+    app.register_blueprint(career_agent_bp)
 
     return app

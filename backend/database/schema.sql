@@ -139,3 +139,17 @@ CREATE TABLE IF NOT EXISTS job_applications (
   field        TEXT    NOT NULL DEFAULT '',
   created_at   TEXT    NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Autonomous career agent runs (resume analysis -> gap analysis -> cover
+-- letter -> interview prep), stored so users can revisit past runs.
+CREATE TABLE IF NOT EXISTS career_agent_runs (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  resume_id       INTEGER REFERENCES resumes(id),
+  role            TEXT    NOT NULL DEFAULT '',
+  company         TEXT    NOT NULL DEFAULT '',
+  job_description TEXT    NOT NULL DEFAULT '',
+  steps_json      TEXT    NOT NULL,
+  result_json     TEXT    NOT NULL,
+  created_at      TEXT    NOT NULL DEFAULT (datetime('now'))
+);

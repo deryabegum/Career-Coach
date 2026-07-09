@@ -161,4 +161,13 @@ export const api = {
   // Career Resources endpoints
   getAllResources: () => request('/api/v1/resources'),
   getRecommendedResources: () => request('/api/v1/resources/recommended'),
+
+  // Career Agent endpoints
+  runCareerAgent: (data) =>
+    request('/api/v1/career-agent/run', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  getCareerAgentRuns: () => request('/api/v1/career-agent/runs'),
+  getCareerAgentRun: (runId) => request(`/api/v1/career-agent/runs/${runId}`),
 };
